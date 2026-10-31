@@ -1,12 +1,5 @@
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxjwSYU2LDVw1uDdcXUPDZkW70ruRqd5sBJFxxL_jWwgo9IBFyG-EYPiGv1FPdlh37-RQ/exec';
 const TOKEN_STORAGE_KEY = 'datafin.access_token';
-
-const getEndpoint = () => {
-  const endpoint = import.meta.env.VITE_APPS_SCRIPT_URL;
-  if (!endpoint) {
-    throw new Error('Configure VITE_APPS_SCRIPT_URL com a URL publicada do Google Apps Script.');
-  }
-  return endpoint;
-};
 
 export const getAccessToken = () => {
   if (typeof localStorage === 'undefined') return null;
@@ -21,58 +14,63 @@ export const setAccessToken = (token) => {
 
 export const clearAccessToken = () => setAccessToken(null);
 
-const encodeQueryValue = (value) =>
-  typeof value === 'string' ? value : JSON.stringify(value);
+const queryValue = (value) => (typeof value === 'string' ? value : JSON.stringify(value));
 
-const parseResponse = async (response) => {
-  const text = await response.text();
-  let result;
+export const api = {
+  async obterDados(acao = 'listar', parametros = {}) {
+    try {
+      const url = new URL(APPS_SCRIPT_URL);
+      url.searchParams.set('action', acao);
+      Object.entries(parametros).forEach(([chave, valor]) => {
+        if (valor !== undefined && valor !== null) url.searchParams.set(chave, queryValue(valor));
+      });
+      const accessToken = getAccessToken();
+      if (accessToken) url.searchParams.set('access_token', accessToken);
+      const resposta = await fetch(url);
+      return await resposta.json();
+    } catch (erro) {
+      console.error('Erro ao buscar dados do Apps Script:', erro);
+      return { status: 'erro', mensagem: erro.message };
+    }
+  },
 
-  try {
-    result = text ? JSON.parse(text) : null;
-  } catch {
-    throw new Error('O Google Apps Script retornou uma resposta inválida.');
-  }
+  async salvarDados(dados) {
+    try {
+      const resposta = await fetch(APPS_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(dados),
+      });
+      return await resposta.json();
+    } catch (erro) {
+      console.error('Erro ao enviar dados para o Apps Script:', erro);
+      return { status: 'erro', mensagem: erro.message };
+    }
+  },
+};
 
-  if (!response.ok || result?.error) {
-    const message =
-      (typeof result?.error === 'string' ? result.error : result?.error?.message) ||
-      result?.message ||
-      `Falha na API (${response.status}).`;
+const unwrapResult = (result) => {
+  if (result?.status === 'erro' || result?.error) {
+    const message = result.mensagem || result.error?.message || result.error || 'Falha ao comunicar com o Apps Script.';
     const error = new Error(message);
-    error.status = result?.status || response.status;
+    error.status = result.httpStatus || result.statusCode;
     error.data = result;
     throw error;
   }
-
   return result && Object.hasOwn(result, 'data') ? result.data : result;
 };
 
-export async function get(action, params = {}) {
-  const url = new URL(getEndpoint());
-  url.searchParams.set('action', action);
-
-  const accessToken = getAccessToken();
-  const query = { ...params, ...(accessToken ? { access_token: accessToken } : {}) };
-  Object.entries(query).forEach(([key, value]) => {
-    if (value !== undefined && value !== null) url.searchParams.set(key, encodeQueryValue(value));
-  });
-
-  return parseResponse(await fetch(url));
+export async function get(action = 'listar', params = {}) {
+  return unwrapResult(await api.obterDados(action, params));
 }
 
 export async function post(action, payload = {}) {
   const accessToken = getAccessToken();
   const body = { ...payload, action, ...(accessToken ? { access_token: accessToken } : {}) };
-  const response = await fetch(getEndpoint(), {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(body),
-  });
-
-  return parseResponse(response);
+  return unwrapResult(await api.salvarDados(body));
 }
 
-const api = { get, post };
+api.get = get;
+api.post = post;
 
 export default api;

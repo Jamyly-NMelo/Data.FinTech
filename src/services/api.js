@@ -1,4 +1,5 @@
 export {
+  api,
   clearAccessToken,
   get,
   getAccessToken,

@@ -1,6 +1,6 @@
 /** Camada de persistência: acesso ao banco desacoplado da interface. */
 
-import { get, post } from '@/services/api';
+import api from '@/services/api';
 import { ENTITY_SCHEMAS, buildBackupPayload, toInsertable } from '@/lib/finance/backup';
 
 const CHUNK_SIZE = 100;
@@ -30,7 +30,7 @@ export const firstOf = (result) => pageOf(result).items[0] ?? null;
 export async function fetchPage(entity, query = {}, { sort = '-created_date', limit = 50, cursor = null } = {}) {
   const options = { sort, limit };
   if (cursor) options.cursor = cursor;
-  const result = await get('records.list', { entity, query, ...options });
+  const result = await api.get('records.list', { entity, query, ...options });
   return pageOf(result);
 }
 
@@ -47,14 +47,14 @@ export async function fetchAll(entity, query = {}, { sort = '-created_date', pag
   return items;
 }
 
-export const countRecords = (entity, query = {}) => get('records.count', { entity, query });
-export const createRecord = (entity, values) => post('records.create', { entity, values });
-export const createRecords = (entity, values = []) => post('records.bulkCreate', { entity, values });
-export const updateRecord = (entity, id, values) => post('records.update', { entity, id, values });
-export const deleteRecord = (entity, id) => post('records.delete', { entity, id });
+export const countRecords = (entity, query = {}) => api.get('records.count', { entity, query });
+export const createRecord = (entity, values) => api.post('records.create', { entity, values });
+export const createRecords = (entity, values = []) => api.post('records.bulkCreate', { entity, values });
+export const updateRecord = (entity, id, values) => api.post('records.update', { entity, id, values });
+export const deleteRecord = (entity, id) => api.post('records.delete', { entity, id });
 export const deleteRecords = (entity, ids = []) =>
-  ids.length ? post('records.deleteMany', { entity, query: { id: { $in: ids } } }) : Promise.resolve(null);
-export const deleteAllOf = (entity) => post('records.deleteMany', { entity, query: {} });
+  ids.length ? api.post('records.deleteMany', { entity, query: { id: { $in: ids } } }) : Promise.resolve(null);
+export const deleteAllOf = (entity) => api.post('records.deleteMany', { entity, query: {} });
 
 /** Conjunto de trabalho usado pelos indicadores e gráficos. */
 export async function loadWorkspaceData() {
@@ -140,7 +140,7 @@ async function writeCollections(collections) {
 
     for (let index = 0; index < prepared.length; index += CHUNK_SIZE) {
       const chunk = prepared.slice(index, index + CHUNK_SIZE);
-      const created = await post('records.bulkCreate', { entity, values: chunk });
+      const created = await api.post('records.bulkCreate', { entity, values: chunk });
       const createdList = Array.isArray(created) ? created : created?.items || [];
       createdList.forEach((record, offset) => {
         const source = rows[index + offset]?.__source_id || rows[index + offset]?.id;
