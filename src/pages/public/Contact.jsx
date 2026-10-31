@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { base44 } from '@/api/base44Client';
+import { post } from '@/services/api';
 import InfoPage, { InfoSection } from '@/components/public/InfoPage';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,10 +18,13 @@ export default function Contact() {
     event.preventDefault();
     setStatus('sending');
     try {
-      await base44.entities.ContactMessage.create({
-        name: form.name.trim(),
-        email: form.email.trim(),
-        message: form.message.trim(),
+      await post('records.create', {
+        entity: 'ContactMessage',
+        values: {
+          name: form.name.trim(),
+          email: form.email.trim(),
+          message: form.message.trim(),
+        },
       });
       setForm(EMPTY_FORM);
       setStatus('sent');

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { get, post, setAccessToken } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,7 +29,7 @@ export default function Register() {
     }
     setLoading(true);
     try {
-      await base44.auth.register({ email, password });
+      await post('auth.register', { email, password });
       setShowOtp(true);
     } catch (err) {
       setError(err.message || "Registration failed");
@@ -42,9 +42,9 @@ export default function Register() {
     setError("");
     setLoading(true);
     try {
-      const result = await base44.auth.verifyOtp({ email, otpCode });
+      const result = await post('auth.verifyOtp', { email, otp_code: otpCode });
       if (result?.access_token) {
-        base44.auth.setToken(result.access_token);
+        setAccessToken(result.access_token);
       }
       window.location.href = safeReturnTo();
     } catch (err) {
@@ -57,7 +57,7 @@ export default function Register() {
   const handleResend = async () => {
     setError("");
     try {
-      await base44.auth.resendOtp(email);
+      await post('auth.resendOtp', { email });
       toast({
         title: "Code sent",
         description: "Check your email for the new code.",
@@ -67,8 +67,16 @@ export default function Register() {
     }
   };
 
-  const handleGoogle = () => {
-    base44.auth.loginWithProvider("google", safeReturnTo());
+  const handleGoogle = async () => {
+    setError("");
+    try {
+      const result = await get('auth.googleLoginUrl', { return_to: safeReturnTo() });
+      const url = typeof result === 'string' ? result : result?.url;
+      if (!url) throw new Error('Google login is not configured.');
+      window.location.assign(url);
+    } catch (err) {
+      setError(err.message || 'Google login failed');
+    }
   };
 
   if (showOtp) {

@@ -91,7 +91,13 @@ export default function OAuthConsent() {
   const [showAllData, setShowAllData] = useState(false);
 
   useEffect(() => {
-    (async () => {
+    const [info, setInfo] = useState(null);
+    const [checking, setChecking] = useState(true);
+    const [submitting, setSubmitting] = useState(false);
+    const [decided, setDecided] = useState("");
+    const [error, setError] = useState("");
+    const [reconnect, setReconnect] = useState("");
+    const [showAllData, setShowAllData] = useState(false);
       let redirecting = false;
       try {
         if (!ctx) {
@@ -102,7 +108,7 @@ export default function OAuthConsent() {
         // approve/deny, and the response carries the app's configured login
         // route for the signed-out redirect below. Send the session (cookie +
         // bearer token) so the server can list the granted tools for a
-        // signed-in user — the same auth the approve/deny call sends; without
+          if (appParams.token) infoHeaders.Authorization = "Bearer " + appParams.token;
         // it the display request is anonymous and shows no tools.
         const infoHeaders = {};
         if (appParams.token) infoHeaders.Authorization = "Bearer " + appParams.token;
@@ -112,6 +118,16 @@ export default function OAuthConsent() {
         );
         if (!res.ok) {
           setError("This authorization link is invalid or has expired.");
+          let data;
+          try {
+            data = await get('mcp.consentInfo', { handle: ctx });
+          } catch (error) {
+            if ([400, 404, 410].includes(error.status)) {
+              setError("This authorization link is invalid or has expired.");
+              return;
+            }
+            throw error;
+          }
           return;
         }
         const data = await res.json();
@@ -135,7 +151,7 @@ export default function OAuthConsent() {
           const returnTo =
             window.location.pathname + "?ctx=" + encodeURIComponent(ctx);
           const encoded = encodeURIComponent(returnTo);
-          redirecting = true; // keep the spinner while the browser navigates
+        if (appParams.token) headers.Authorization = "Bearer " + appParams.token;
           window.location.href =
             (data.login_path || "/login") + "?returnTo=" + encoded + "&from_url=" + encoded;
           return;

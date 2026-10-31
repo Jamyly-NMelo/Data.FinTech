@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { get, post, setAccessToken } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,7 +23,8 @@ export default function Login() {
     setError("");
     setLoading(true);
     try {
-      await base44.auth.loginViaEmailPassword(email, password);
+      const result = await post('auth.login', { email, password });
+      if (result?.access_token) setAccessToken(result.access_token);
       window.location.href = returnTo;
     } catch (err) {
       setError(err.message || "Invalid email or password");
@@ -32,8 +33,16 @@ export default function Login() {
     }
   };
 
-  const handleGoogle = () => {
-    base44.auth.loginWithProvider("google", returnTo);
+  const handleGoogle = async () => {
+    setError("");
+    try {
+      const result = await get('auth.googleLoginUrl', { return_to: returnTo });
+      const url = typeof result === 'string' ? result : result?.url;
+      if (!url) throw new Error('Google login is not configured.');
+      window.location.assign(url);
+    } catch (err) {
+      setError(err.message || 'Google login failed');
+    }
   };
 
   return (

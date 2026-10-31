@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { base44 } from '@/api/base44Client';
+import { get, post } from '@/services/api';
 import { firstOf } from '@/lib/data';
 
 const STORAGE_KEY = 'datafin.preferences';
@@ -50,14 +50,19 @@ export function PreferencesProvider({ children }) {
     let active = true;
     const load = async () => {
       try {
-        const records = await base44.entities.Preferences.filter({}, { sort: '-updated_date', limit: 1 });
+        const records = await get('records.list', {
+          entity: 'Preferences',
+          query: {},
+          sort: '-updated_date',
+          limit: 1,
+        });
         const record = firstOf(records);
         if (!active) return;
         if (record) {
           setRecordId(record.id);
           setPreferences((current) => ({ ...current, ...pick(record) }));
         } else {
-          const created = await base44.entities.Preferences.create(DEFAULT_PREFERENCES);
+          const created = await post('records.create', { entity: 'Preferences', values: DEFAULT_PREFERENCES });
           if (active && created?.id) setRecordId(created.id);
         }
       } catch {
@@ -76,9 +81,12 @@ export function PreferencesProvider({ children }) {
     async (patch) => {
       try {
         if (recordId) {
-          await base44.entities.Preferences.update(recordId, patch);
+          await post('records.update', { entity: 'Preferences', id: recordId, values: patch });
         } else {
-          const created = await base44.entities.Preferences.create({ ...DEFAULT_PREFERENCES, ...patch });
+          const created = await post('records.create', {
+            entity: 'Preferences',
+            values: { ...DEFAULT_PREFERENCES, ...patch },
+          });
           if (created?.id) setRecordId(created.id);
         }
       } catch {

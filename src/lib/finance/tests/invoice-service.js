@@ -1,6 +1,6 @@
 /** Envio e leitura da fatura em PDF (arquivo privado, sem URL pública permanente). */
 
-import { base44 } from '@/api/base44Client';
+import { post } from '@/services/api';
 
 export const MAX_INVOICE_FILE_BYTES = 10 * 1024 * 1024;
 
@@ -15,15 +15,24 @@ export const validateInvoiceFile = (file) => {
 
 /** Upload privado: o PDF não recebe URL pública. */
 export const uploadInvoicePdf = async (file) => {
-  const result = await base44.integrations.Core.UploadPrivateFile({ file });
+  const dataUrl = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error('Não foi possível ler o arquivo PDF.'));
+    reader.readAsDataURL(file);
+  });
+  const result = await post('invoices.upload', {
+    name: file.name,
+    mime_type: file.type || 'application/pdf',
+    base64: String(dataUrl).split(',')[1],
+  });
   const fileUri = result?.file_uri;
   if (!fileUri) throw new Error('O envio do arquivo não retornou um identificador.');
   return fileUri;
 };
 
 export const extractInvoiceFromPdf = async (fileUri) => {
-  const response = await base44.functions.invoke('extractCardInvoice', { file_uri: fileUri });
-  const data = response?.data || {};
+  const data = await post('invoices.extract', { file_uri: fileUri });
   if (data.error) throw new Error(data.error);
   if (!data.document) throw new Error('A leitura não retornou dados da fatura.');
   return data;
