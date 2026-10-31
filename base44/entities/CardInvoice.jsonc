@@ -1,0 +1,139 @@
+{
+  "name": "CardInvoice",
+  "type": "object",
+  "properties": {
+    "account_id": {
+      "type": "string"
+    },
+    "environment": {
+      "type": "string",
+      "enum": [
+        "pf",
+        "pj",
+        "invest"
+      ],
+      "default": "pf"
+    },
+    "institution": {
+      "type": "string"
+    },
+    "card_mask": {
+      "type": "string"
+    },
+    "closing_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "period_from": {
+      "type": "string",
+      "format": "date"
+    },
+    "period_to": {
+      "type": "string",
+      "format": "date"
+    },
+    "previous_balance": {
+      "type": "number",
+      "default": 0
+    },
+    "declared_total": {
+      "type": "number",
+      "default": 0
+    },
+    "minimum_payment": {
+      "type": "number",
+      "default": 0
+    },
+    "items_total": {
+      "type": "number",
+      "default": 0
+    },
+    "items_count": {
+      "type": "number",
+      "default": 0
+    },
+    "summary_only": {
+      "type": "boolean",
+      "default": false
+    },
+    "fingerprint": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "pdf_import",
+        "manual"
+      ],
+      "default": "pdf_import"
+    },
+    "source_file_name": {
+      "type": "string"
+    },
+    "source_file_uri": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "confirmado",
+        "descartado"
+      ],
+      "default": "confirmado"
+    },
+    "transaction_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "account_id"
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

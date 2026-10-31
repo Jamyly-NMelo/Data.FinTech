@@ -1,0 +1,75 @@
+{
+  "name": "Budget",
+  "type": "object",
+  "properties": {
+    "category_id": {
+      "type": "string"
+    },
+    "environment": {
+      "type": "string",
+      "enum": [
+        "pf",
+        "pj",
+        "invest"
+      ],
+      "default": "pf"
+    },
+    "month": {
+      "type": "string"
+    },
+    "amount": {
+      "type": "number",
+      "default": 0
+    },
+    "alert_percent": {
+      "type": "number",
+      "default": 80
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "category_id",
+    "month",
+    "amount"
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,93 @@
+{
+  "name": "Goal",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "environment": {
+      "type": "string",
+      "enum": [
+        "pf",
+        "pj",
+        "invest"
+      ],
+      "default": "pf"
+    },
+    "target_amount": {
+      "type": "number",
+      "default": 0
+    },
+    "saved_amount": {
+      "type": "number",
+      "default": 0
+    },
+    "deadline": {
+      "type": "string",
+      "format": "date"
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "baixa",
+        "media",
+        "alta"
+      ],
+      "default": "media"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ativa",
+        "concluida",
+        "pausada"
+      ],
+      "default": "ativa"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "name",
+    "target_amount"
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

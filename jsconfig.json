@@ -1,0 +1,41 @@
+{
+ "cells": [
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "c304b942",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "{\n",
+    "  \"compilerOptions\": {\n",
+    "    \"baseUrl\": \".\",\n",
+    "    \"paths\": {\n",
+    "      \"@/*\": [\"./src/*\"]\n",
+    "    },\n",
+    "    \"jsx\": \"react-jsx\",\n",
+    "    \"module\": \"esnext\",\n",
+    "    \"moduleResolution\": \"bundler\",\n",
+    "    \"lib\": [\"esnext\", \"dom\"],\n",
+    "    \"target\": \"esnext\",\n",
+    "    \"checkJs\": true,\n",
+    "    \"skipLibCheck\": true,\n",
+    "    \"allowSyntheticDefaultImports\": true,\n",
+    "    \"esModuleInterop\": true,\n",
+    "    \"resolveJsonModule\": true,\n",
+    "    \"types\": []\n",
+    "  },\n",
+    "  \"include\": [\"src/components/**/*.js\", \"src/pages/**/*.jsx\", \"src/Layout.jsx\"],\n",
+    "  \"exclude\": [\"node_modules\", \"dist\", \"src/vite-plugins\", \"src/components/ui\", \"src/api\", \"src/lib\"]\n",
+    "} "
+   ]
+  }
+ ],
+ "metadata": {
+  "language_info": {
+   "name": "python"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}

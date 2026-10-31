@@ -1,0 +1,124 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Identidade Data Fintech */
+    --background: 200 23% 97%;        /* #F7F9FA */
+    --foreground: 216 18% 16%;        /* #222831 */
+    --card: 0 0% 100%;
+    --card-foreground: 216 18% 16%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 216 18% 16%;
+    --primary: 217 71% 20%;           /* #0F2C59 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 202 24% 93%;
+    --secondary-foreground: 217 71% 20%;
+    --muted: 202 24% 94%;
+    --muted-foreground: 216 13% 42%;
+    --accent: 164 36% 94%;
+    --accent-foreground: 217 60% 18%;
+    --destructive: 0 68% 45%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 164 38% 49%;           /* #4EAE94 */
+    --success-foreground: 0 0% 100%;
+    --warning: 36 47% 66%;            /* #F8B959 */
+    --warning-foreground: 30 60% 18%;
+    --border: 205 22% 88%;
+    --input: 205 22% 88%;
+    --ring: 217 71% 20%;
+    --chart-1: 217 71% 20%;
+    --chart-2: 164 38% 49%;
+    --chart-3: 36 47% 66%;
+    --chart-4: 205 62% 45%;
+    --chart-5: 12 62% 56%;
+    --radius: 0.75rem;
+    --shadow-card: 0 1px 2px rgba(15, 44, 89, 0.05), 0 12px 32px -18px rgba(15, 44, 89, 0.28);
+    --font-heading: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+    --font-body: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    --font-display: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 216 18% 22%;
+    --sidebar-primary: 217 71% 20%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 200 23% 96%;
+    --sidebar-accent-foreground: 217 71% 20%;
+    --sidebar-border: 205 22% 90%;
+    --sidebar-ring: 217 71% 20%;
+  }
+
+  .dark {
+    --background: 220 33% 11%;        /* #121824 */
+    --foreground: 210 30% 96%;
+    --card: 226 36% 18%;              /* #1E2640 */
+    --card-foreground: 210 30% 96%;
+    --popover: 226 36% 18%;
+    --popover-foreground: 210 30% 96%;
+    --primary: 164 38% 49%;           /* #4EAE94 */
+    --primary-foreground: 220 33% 11%;
+    --secondary: 226 30% 24%;
+    --secondary-foreground: 210 30% 96%;
+    --muted: 226 30% 22%;
+    --muted-foreground: 214 18% 70%;
+    --accent: 226 30% 26%;
+    --accent-foreground: 210 30% 96%;
+    --destructive: 0 62% 52%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 164 42% 55%;
+    --success-foreground: 220 33% 11%;
+    --warning: 36 68% 62%;
+    --warning-foreground: 220 33% 11%;
+    --border: 225 30% 26%;            /* #2E3856 */
+    --input: 225 30% 26%;
+    --ring: 164 38% 49%;
+    --chart-1: 164 38% 55%;
+    --chart-2: 36 60% 62%;
+    --chart-3: 205 70% 62%;
+    --chart-4: 265 55% 68%;
+    --chart-5: 12 65% 62%;
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.35), 0 16px 40px -22px rgba(0, 0, 0, 0.7);
+    --sidebar-background: 226 36% 15%;
+    --sidebar-foreground: 210 25% 90%;
+    --sidebar-primary: 164 38% 49%;
+    --sidebar-primary-foreground: 220 33% 11%;
+    --sidebar-accent: 226 30% 22%;
+    --sidebar-accent-foreground: 210 30% 96%;
+    --sidebar-border: 225 30% 24%;
+    --sidebar-ring: 164 38% 49%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground font-body antialiased;
+  }
+
+  h1, h2, h3, h4 {
+    @apply font-heading tracking-tight;
+  }
+}
+
+@layer utilities {
+  .surface-card {
+    @apply rounded-2xl border border-border/70 bg-card shadow-[var(--shadow-card)];
+  }
+
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
