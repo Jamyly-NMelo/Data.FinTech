@@ -1,41 +1,21 @@
 {
- "cells": [
-  {
-   "cell_type": "code",
-   "execution_count": null,
-   "id": "0b126add",
-   "metadata": {},
-   "outputs": [],
-   "source": [
-    "{\n",
-    "  \"$schema\": \"https://ui.shadcn.com/schema.json\",\n",
-    "  \"style\": \"new-york\",\n",
-    "  \"rsc\": false,\n",
-    "  \"tsx\": false,\n",
-    "  \"tailwind\": {\n",
-    "    \"config\": \"tailwind.config.js\",\n",
-    "    \"css\": \"src/index.css\",\n",
-    "    \"baseColor\": \"neutral\",\n",
-    "    \"cssVariables\": true,\n",
-    "    \"prefix\": \"\"\n",
-    "  },\n",
-    "  \"aliases\": {\n",
-    "    \"components\": \"@/components\",\n",
-    "    \"utils\": \"@/lib/utils\",\n",
-    "    \"ui\": \"@/components/ui\",\n",
-    "    \"lib\": \"@/lib\",\n",
-    "    \"hooks\": \"@/hooks\"\n",
-    "  },\n",
-    "  \"iconLibrary\": \"lucide\"\n",
-    "}"
-   ]
-  }
- ],
- "metadata": {
-  "language_info": {
-   "name": "python"
-  }
- },
- "nbformat": 4,
- "nbformat_minor": 5
+  "$schema": "https://ui.shadcn.com/schema.json",
+  "style": "new-york",
+  "rsc": false,
+  "tsx": false,
+  "tailwind": {
+    "config": "tailwind.config.js",
+    "css": "src/index.css",
+    "baseColor": "neutral",
+    "cssVariables": true,
+    "prefix": ""
+  },
+  "aliases": {
+    "components": "@/components",
+    "utils": "@/lib/utils",
+    "ui": "@/components/ui",
+    "lib": "@/lib",
+    "hooks": "@/hooks"
+  },
+  "iconLibrary": "lucide"
 }
