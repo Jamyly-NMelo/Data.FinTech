@@ -1,8 +1,21 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
+import { Eye, EyeOff, LogOut, Menu, Moon, Plus, Settings, Sun } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
 import { WorkspaceProvider, useWorkspace } from '@/lib/workspace';
+import { usePreferences } from '@/lib/preferences';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 const LINKS = [
   ['/','Painel'],
@@ -20,9 +33,32 @@ const LINKS = [
   ['/configuracoes','Configurações'],
 ];
 
+const ENVIRONMENTS = [
+  { value: 'pf', label: 'PF' },
+  { value: 'pj', label: 'PJ' },
+  { value: 'invest', label: 'INV' },
+  { value: 'consolidado', label: 'CONS' },
+];
+
+const getInitials = (user) => {
+  const fullName = String(user?.full_name || user?.name || '').trim();
+  const emailName = String(user?.email || '').split('@')[0].replace(/[._-]+/g, ' ').trim();
+  const words = (fullName || emailName).split(/\s+/).filter(Boolean);
+  if (!words.length) return 'U';
+  if (words.length > 1) return words.slice(0, 2).map((word) => word[0]).join('').toUpperCase();
+  return words[0].slice(0, 2).toUpperCase();
+};
+
 function WorkspaceShell() {
   const { user, logout } = useAuth();
   const { loading, error, refresh } = useWorkspace();
+  const { environment, setEnvironment, privacy, togglePrivacy, theme, setTheme } = usePreferences();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const isDark = theme === 'dark' || (
+    theme === 'system' &&
+    typeof window !== 'undefined' &&
+    window.matchMedia('(prefers-color-scheme: dark)').matches
+  );
 
   if (loading) {
     return (
@@ -48,33 +84,144 @@ function WorkspaceShell() {
 
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-30 border-b border-border/70 bg-background/95 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 px-4 py-3">
-          <Link to="/" className="mr-auto inline-flex items-center gap-2 font-heading font-bold text-primary">
-            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary text-xs text-primary-foreground">DF</span>
-            Data Fintech
-          </Link>
-          <span className="hidden text-xs text-muted-foreground sm:inline">{user?.email}</span>
-          <button type="button" className="rounded-lg px-3 py-2 text-xs text-muted-foreground hover:bg-muted" onClick={() => logout()}>
-            Sair
-          </button>
-          <nav className="no-scrollbar order-3 flex w-full gap-1 overflow-x-auto border-t border-border/50 pt-2" aria-label="Navegação principal">
-            {LINKS.map(([to, label]) => (
-              <NavLink
-                key={to}
-                to={to}
-                end={to === '/'}
-                className={({ isActive }) =>
-                  cn('whitespace-nowrap rounded-lg px-3 py-2 text-xs transition-colors', isActive ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted')
-                }
+      <header className="fixed inset-x-0 top-0 z-40 h-16 border-b border-border/70 bg-background/95 backdrop-blur">
+        <div className="mx-auto flex h-full max-w-7xl items-center gap-1 px-2 sm:gap-2 sm:px-4">
+          <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 shrink-0 sm:h-9 sm:w-9"
+              aria-label="Abrir menu de navegação"
+              onClick={() => setMenuOpen(true)}
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+            <SheetContent side="left" className="flex flex-col gap-0">
+              <SheetHeader className="border-b border-border/70 px-5 py-5">
+                <SheetTitle className="flex items-center gap-2 font-heading text-primary">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary text-xs text-primary-foreground">DF</span>
+                  Data Fintech
+                </SheetTitle>
+                <SheetDescription className="sr-only">Navegação principal do aplicativo.</SheetDescription>
+              </SheetHeader>
+              <nav className="flex-1 space-y-1 overflow-y-auto p-3" aria-label="Navegação principal">
+                {LINKS.map(([to, label]) => (
+                  <NavLink
+                    key={to}
+                    to={to}
+                    end={to === '/'}
+                    onClick={() => setMenuOpen(false)}
+                    className={({ isActive }) =>
+                      cn(
+                        'block rounded-xl px-3 py-2.5 text-sm font-medium transition-colors',
+                        isActive ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                      )
+                    }
+                  >
+                    {label}
+                  </NavLink>
+                ))}
+              </nav>
+            </SheetContent>
+          </Sheet>
+
+          <div className="inline-flex shrink-0 items-center rounded-full border border-border/70 bg-muted/50 p-0.5" role="group" aria-label="Ambiente financeiro">
+            {ENVIRONMENTS.map(({ value, label }) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={environment === value}
+                onClick={() => setEnvironment(value)}
+                className={cn(
+                  'rounded-full px-1.5 py-1 text-[10px] font-semibold leading-none transition-colors sm:px-2 sm:text-xs',
+                  environment === value
+                    ? 'bg-[#0F2C59] text-white shadow-sm'
+                    : 'text-muted-foreground hover:bg-background hover:text-foreground',
+                )}
               >
                 {label}
-              </NavLink>
+              </button>
             ))}
-          </nav>
+          </div>
+
+          <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1.5">
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="h-8 w-8 border-primary/25 px-0 text-primary hover:bg-primary/5 sm:h-9 sm:w-auto sm:px-3"
+              aria-label="Novo lançamento"
+            >
+              <Link to="/lancamentos?novo=1">
+                <Plus className="h-4 w-4 shrink-0" />
+                <span className="hidden sm:inline">Novo lançamento</span>
+              </Link>
+            </Button>
+
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 sm:h-9 sm:w-9"
+              aria-label={privacy ? 'Mostrar valores' : 'Ocultar valores'}
+              title={privacy ? 'Mostrar valores' : 'Ocultar valores'}
+              onClick={togglePrivacy}
+            >
+              {privacy ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </Button>
+
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 sm:h-9 sm:w-9"
+              aria-label={isDark ? 'Ativar tema claro' : 'Ativar tema escuro'}
+              title={isDark ? 'Ativar tema claro' : 'Ativar tema escuro'}
+              onClick={() => setTheme(isDark ? 'light' : 'dark')}
+            >
+              {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </Button>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="h-8 w-8 rounded-full p-0 sm:h-9 sm:w-9"
+                  aria-label="Abrir menu do usuário"
+                >
+                  <Avatar className="h-8 w-8 sm:h-9 sm:w-9">
+                    <AvatarFallback className="bg-[#0F2C59] text-xs font-semibold text-white">
+                      {getInitials(user)}
+                    </AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64">
+                <DropdownMenuLabel className="font-normal">
+                  <span className="block truncate text-xs text-muted-foreground">{user?.email || 'E-mail não informado'}</span>
+                  <span className="mt-1 block text-sm font-medium text-foreground">
+                    {user?.role === 'admin' ? 'Administrador' : 'Usuário'}
+                  </span>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link to="/configuracoes">
+                    <Settings className="mr-2 h-4 w-4" />
+                    Configurações
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => logout()}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Sair
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:py-8">
+      <main className="mx-auto w-full max-w-7xl px-4 pb-6 pt-24 sm:pb-8 sm:pt-28">
         <Outlet />
       </main>
     </div>
