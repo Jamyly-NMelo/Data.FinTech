@@ -1,13 +1,12 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import { get, post, setAccessToken } from "@/services/api";
+import { post, setAccessToken } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { UserPlus, Mail, Lock, Loader2 } from "lucide-react";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import AuthLayout from "@/components/AuthLayout";
-import GoogleIcon from "@/components/GoogleIcon";
 import { toast } from "@/components/ui/use-toast";
 import { safeReturnTo } from "@/lib/authReturnTo";
 
@@ -64,18 +63,6 @@ export default function Register() {
       });
     } catch (err) {
       setError(err.message || "Failed to resend code");
-    }
-  };
-
-  const handleGoogle = async () => {
-    setError("");
-    try {
-      const result = await get('auth.googleLoginUrl', { return_to: safeReturnTo() });
-      const url = typeof result === 'string' ? result : result?.url;
-      if (!url) throw new Error('Google login is not configured.');
-      window.location.assign(url);
-    } catch (err) {
-      setError(err.message || 'Google login failed');
     }
   };
 
@@ -150,23 +137,9 @@ export default function Register() {
         </>
       }
     >
-      <Button
-        variant="outline"
-        className="w-full h-12 text-sm font-medium mb-6"
-        onClick={handleGoogle}
-      >
-        <GoogleIcon className="w-5 h-5 mr-2" />
-        Continue with Google
-      </Button>
-
-      <div className="relative mb-6">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-border" />
-        </div>
-        <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-card px-3 text-muted-foreground">or</span>
-        </div>
-      </div>
+      <p className="mb-6 text-sm text-muted-foreground" role="status">
+        O login com Google não está disponível. Crie sua conta com e-mail e senha.
+      </p>
 
       {error && (
         <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">

@@ -1,0 +1,93 @@
+{
+  "name": "Pricing",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "environment": {
+      "type": "string",
+      "enum": [
+        "pf",
+        "pj",
+        "invest"
+      ],
+      "default": "pj"
+    },
+    "unit_name": {
+      "type": "string"
+    },
+    "variable_cost": {
+      "type": "number",
+      "default": 0
+    },
+    "fixed_cost_monthly": {
+      "type": "number",
+      "default": 0
+    },
+    "tax_percent": {
+      "type": "number",
+      "default": 0
+    },
+    "commission_percent": {
+      "type": "number",
+      "default": 0
+    },
+    "desired_margin_percent": {
+      "type": "number",
+      "default": 0
+    },
+    "current_price": {
+      "type": "number",
+      "default": 0
+    },
+    "expected_monthly_units": {
+      "type": "number",
+      "default": 0
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "name"
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

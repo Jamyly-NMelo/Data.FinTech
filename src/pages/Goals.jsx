@@ -13,7 +13,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useWorkspace } from '@/lib/workspace';
 import { usePreferences } from '@/lib/preferences';
 import { ENVIRONMENTS } from '@/lib/finance/metrics';
-import { daysBetween, monthKey } from '@/lib/finance/periods';
+import { daysBetween } from '@/lib/finance/periods';
 import { formatDate, formatPercent, todayISO } from '@/lib/format';
 import { Flag, MoreHorizontal, Pencil, Plus, Trash2, TrendingUp } from 'lucide-react';
 

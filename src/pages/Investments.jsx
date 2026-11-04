@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useWorkspace } from '@/lib/workspace';
 import { usePreferences } from '@/lib/preferences';
-import { ASSET_CLASSES, OPERATION_TYPES, assetClassLabel, investmentMetrics, operationAmount, portfolioSummary } from '@/lib/finance/investments';
+import { ASSET_CLASSES, assetClassLabel, investmentMetrics, operationAmount, portfolioSummary } from '@/lib/finance/investments';
 import { formatDate, formatNumber, formatPercent, todayISO } from '@/lib/format';
 import { Coins, MoreHorizontal, Pencil, Plus, Trash2, TrendingUp, Wallet } from 'lucide-react';
 

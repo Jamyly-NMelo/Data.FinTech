@@ -1,34 +1,32 @@
-# AGENTS.md
+# Instruções do projeto
 
-## Project Context
+## Arquitetura
 
-This is a Base44 app repository. Treat it as user-owned application code, keep changes focused on the user's request, and preserve existing project conventions.
+Este repositório contém o frontend React + Vite. A aplicação chama o Web App
+Google Apps Script, que valida autenticação e usa o Google Sheets como banco:
 
-Start with `README.md` for local setup, environment variables, and publish workflow.
-
-## Base44 References
-
-- CLI overview: https://docs.base44.com/developers/references/cli/get-started/overview.md
-- Agent skills: https://docs.base44.com/developers/backend/overview/skills.md
-
-If your agent supports Agent Skills, install or update Base44 skills before Base44-specific work:
-
-```bash
-npx skills add base44/skills
+```text
+React → Apps Script → Google Sheets
 ```
 
-## Key Files
+O cliente da API fica em `src/Client.js` e é reexportado por
+`src/services/api.js`. Preserve o protocolo existente: leituras via GET,
+escritas via POST com JSON e autenticação por `access_token`.
 
-- `src/`: frontend application source.
-- `src/api/base44Client.js`: frontend Base44 SDK client.
-- `vite.config.js`: Vite config and Base44 Vite plugin setup.
-- `.env.local`: local-only environment values; never commit secrets.
+## Ambiente e execução
 
-## Working Notes
+- Configure `VITE_APPS_SCRIPT_URL` em `.env.local`; nunca versione URLs de
+  implantação reais, tokens ou senhas.
+- Rode `npm install` e `npm run dev` para desenvolvimento local.
+- Rode `npm run lint` e `npm run build` para validar alterações.
+- O backend é implantado separadamente como Web App do Google Apps Script.
+  Consulte `README.md` para o fluxo de implantação.
 
-- Use `base44 dev` as the default local development command when you need the local Base44 backend. It can run the backend and frontend together.
-- When docs or code mention the frontend being started automatically, that usually means the Base44 project config includes `site.serveCommand`, for example `"serveCommand": "npm run dev"` in `base44/config.jsonc`.
-- Use `npm run dev` only for frontend-only work against the hosted Base44 backend.
-- Prefer the existing Base44 CLI workflow over adding new npm scripts for Base44-specific tasks.
-- Reuse the existing SDK client and Vite plugin patterns before adding new Base44 integration paths.
-- Run the relevant checks from `package.json` before finishing code changes.
+## Convenções
+
+- Mantenha componentes em `src/components/`, páginas em `src/pages/` e lógica
+  compartilhada em `src/lib/`.
+- Consulte `docs/schema/` para os nomes de entidades e campos.
+- Reutilize `src/services/api.js` para chamadas ao backend.
+- Faça mudanças focadas e preserve os nomes de entidades e campos esperados pela
+  API e pelas abas do Google Sheets.

@@ -1,4 +1,6 @@
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxjwSYU2LDVw1uDdcXUPDZkW70ruRqd5sBJFxxL_jWwgo9IBFyG-EYPiGv1FPdlh37-RQ/exec';
+// URL da implantação do Apps Script (termina em /exec). Defina em .env.local:
+//   VITE_APPS_SCRIPT_URL=https://script.google.com/macros/s/SEU_ID/exec
+const APPS_SCRIPT_URL = import.meta.env.VITE_APPS_SCRIPT_URL;
 const TOKEN_STORAGE_KEY = 'datafin.access_token';
 
 export const getAccessToken = () => {
@@ -19,6 +21,7 @@ const queryValue = (value) => (typeof value === 'string' ? value : JSON.stringif
 export const api = {
   async obterDados(acao = 'listar', parametros = {}) {
     try {
+      if (!APPS_SCRIPT_URL) throw new Error('VITE_APPS_SCRIPT_URL não está definida no .env.local');
       const url = new URL(APPS_SCRIPT_URL);
       url.searchParams.set('action', acao);
       Object.entries(parametros).forEach(([chave, valor]) => {
@@ -36,6 +39,7 @@ export const api = {
 
   async salvarDados(dados) {
     try {
+      if (!APPS_SCRIPT_URL) throw new Error('VITE_APPS_SCRIPT_URL não está definida no .env.local');
       const resposta = await fetch(APPS_SCRIPT_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },

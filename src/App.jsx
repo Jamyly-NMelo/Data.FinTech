@@ -4,7 +4,6 @@ import { queryClientInstance } from '@/lib/query-client'
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
-import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import ScrollToTop from './components/ScrollToTop';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { PreferencesProvider } from '@/lib/preferences';
@@ -50,11 +49,9 @@ const AuthenticatedApp = () => {
     );
   }
 
-  // Handle authentication errors — as páginas públicas são legíveis sem conta.
+  // Public pages remain available without an account.
   if (authError && !isPublicPath(window.location.pathname)) {
-    if (authError.type === 'user_not_registered') {
-      return <UserNotRegisteredError />;
-    } else if (authError.type === 'auth_required') {
+    if (authError.type === 'auth_required') {
       // Redirect to login automatically
       navigateToLogin();
       return null;

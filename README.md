@@ -1,82 +1,66 @@
-{
- "cells": [
-  {
-   "cell_type": "code",
-   "execution_count": null,
-   "id": "75a048ac",
-   "metadata": {},
-   "outputs": [],
-   "source": [
-    "# Base44 Project\n",
-    "\n",
-    "Use this repository to run and edit the app locally, then publish changes back through Base44.\n",
-    "\n",
-    "Any change pushed to the repo will also be reflected in the Base44 Builder.\n",
-    "\n",
-    "## Prerequisites\n",
-    "\n",
-    "1. Clone the repository using the project's Git URL.\n",
-    "2. Navigate to the project directory.\n",
-    "3. Install dependencies: `npm install`.\n",
-    "4. Install the Base44 CLI: `npm install -g base44@latest`.\n",
-    "5. Install [Deno](https://docs.deno.com/runtime/getting_started/installation/) — the local Base44 backend runs on it.\n",
-    "\n",
-    "Run `base44 --help` (or see the [CLI reference](https://docs.base44.com/developers/references/cli/commands/introduction)) for the full command surface.\n",
-    "\n",
-    "## Run Locally\n",
-    "\n",
-    "Three commands, from the project root:\n",
-    "\n",
-    "```bash\n",
-    "base44 login   # one-time per machine\n",
-    "base44 link    # one-time per clone\n",
-    "base44 dev     # local backend + frontend together\n",
-    "```\n",
-    "\n",
-    "Open the frontend URL that `base44 dev` prints (typically `http://localhost:5173`).\n",
-    "\n",
-    "Notes:\n",
-    "\n",
-    "- **Every fresh clone needs `base44 link`.** It writes `base44/.app.jsonc` (the app-id pointer), which is deliberately gitignored. Your app id is in the Builder URL (`app.base44.com/apps/<id>/...`); `base44 link --help` shows the non-interactive flags.\n",
-    "- **`base44 dev` runs the frontend for you** (via `site.serveCommand` in this repo's `base44/config.jsonc`) — never run `npm run dev` yourself: alone it serves a UI with no backend behind it (`[base44] Proxy not enabled`, every `/api` call fails), and alongside `base44 dev` the second Vite silently takes the next port and you end up looking at the wrong one.\n",
-    "- **The app must be published at least once for the UI to load under `base44 dev`.** The frontend boots by fetching app settings from the hosted app; before the first publish that fails and every page redirects to login. The local API works regardless.\n",
-    "- Entities, functions, and auth run locally — entity data is **in-memory only**, wiped when `base44 dev` restarts. Everything else (Core integrations, OAuth login) is forwarded to your deployed app. Full breakdown: [Local development overview](https://docs.base44.com/developers/backend/overview/local-dev/local-development-overview).\n",
-    "\n",
-    "## Frontend Only, Hosted Backend\n",
-    "\n",
-    "To work on just the frontend against your app's live hosted backend:\n",
-    "\n",
-    "```bash\n",
-    "base44 dev --remote\n",
-    "```\n",
-    "\n",
-    "⚠️ In this mode writes go to your app's **production data** — plain `base44 dev` keeps everything local.\n",
-    "\n",
-    "## Publish Your Changes\n",
-    "\n",
-    "After pushing your changes to git, open the Base44 dashboard and publish the app:\n",
-    "\n",
-    "```bash\n",
-    "base44 dashboard open\n",
-    "```\n",
-    "\n",
-    "This repo syncs to Base44 through git, so publish from the dashboard rather than `base44 deploy` — a CLI deploy ships your local tree directly, bypassing the sync, and the deployed state silently diverges from the repo.\n",
-    "\n",
-    "## Docs & Support\n",
-    "\n",
-    "GitHub integration: [https://docs.base44.com/developers/app-code/local-development/github](https://docs.base44.com/developers/app-code/local-development/github)\n",
-    "\n",
-    "Local development: [https://docs.base44.com/developers/backend/overview/local-dev/local-development-overview](https://docs.base44.com/developers/backend/overview/local-dev/local-development-overview)\n",
-    "\n",
-    "Support: [https://app.base44.com/support](https://app.base44.com/support)\n"
-   ]
-  }
- ],
- "metadata": {
-  "language_info": {
-   "name": "python"
-  }
- },
- "nbformat": 4,
- "nbformat_minor": 5
-}
+# Data.FinTech
+
+Aplicação React + Vite para controle financeiro. O frontend chama o Web App do
+Google Apps Script, que valida a sessão e lê/grava os dados no Google Sheets:
+
+```text
+React → Google Apps Script → Google Sheets
+```
+
+As definições originais das entidades e campos estão preservadas em
+`docs/schema/`.
+
+## Configuração local
+
+Requisitos: Node.js e npm.
+
+1. Instale as dependências:
+
+   ```bash
+   npm install
+   ```
+
+2. Copie `.env.example` para `.env.local` e informe a URL do Web App:
+
+   ```dotenv
+   VITE_APPS_SCRIPT_URL=https://script.google.com/macros/s/SEU_DEPLOYMENT_ID/exec
+   ```
+
+   `.env.local` é ignorado pelo Git. Não coloque tokens, senhas ou URLs de
+   implantação reais em arquivos versionados.
+
+3. Inicie o frontend:
+
+   ```bash
+   npm run dev
+   ```
+
+   O Vite mostra a URL local no terminal. A API precisa estar implantada e
+   acessível para que login e dados funcionem.
+
+## Implantar o Apps Script
+
+O backend é implantado separadamente no projeto Apps Script associado à
+planilha. O código-fonte está em `apps-script/Codigo.gs` e implementa as ações
+`auth.*` e `records.*` usadas pelo frontend.
+
+1. Configure as propriedades e permissões exigidas pelo código do script.
+2. Publique como **Web app**, usando a identidade e o acesso apropriados para
+   sua aplicação.
+3. Copie a URL de implantação terminada em `/exec` para `VITE_APPS_SCRIPT_URL`
+   no ambiente de execução do frontend.
+4. Ao publicar uma nova versão do script, atualize a implantação do Web App.
+
+Não publique credenciais ou tokens no frontend. A autenticação da aplicação
+usa o `access_token` retornado pelo fluxo de login.
+
+## Verificações
+
+```bash
+npm run lint
+npm run build
+node --test src/lib/finance/tests/*.test.js
+```
+
+O `package.json` ainda não define um script `npm test`; os testes existentes são
+executados diretamente pelo runner do Node.js.
