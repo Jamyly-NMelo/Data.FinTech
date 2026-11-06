@@ -1,7 +1,7 @@
 /** Camada de persistência: acesso ao banco desacoplado da interface. */
 
 import api from '@/services/api';
-import { ENTITY_SCHEMAS, buildBackupPayload, toInsertable } from '@/lib/finance/backup';
+import { ENTITY_SCHEMAS, buildBackupPayload, replaceBackupData, toInsertable } from '@/lib/finance/backup';
 
 const CHUNK_SIZE = 100;
 
@@ -159,23 +159,15 @@ async function writeCollections(collections) {
 export const replaceWorkspaceData = async (validatedData, { onProgress } = {}) => {
   onProgress?.('Preparando cópia de segurança');
   const snapshot = buildBackupPayload(await exportWorkspaceData()).data;
-
-  try {
-    for (const entity of RESTORE_ORDER) {
-      onProgress?.(`Limpando ${entity}`);
-      await deleteAllOf(entity);
-    }
-    onProgress?.('Gravando novos registros');
-    await writeCollections(validatedData);
-    return { ok: true };
-  } catch (error) {
-    try {
-      for (const entity of RESTORE_ORDER) await deleteAllOf(entity);
-      await writeCollections(snapshot);
-    } catch (rollbackError) {
-      const rollbackMessage = rollbackError instanceof Error ? rollbackError.message : String(rollbackError);
-      throw new Error(`A importação falhou (${error.message}) e a restauração automática também não foi concluída (${rollbackMessage}).`);
-    }
-    throw new Error(`A importação falhou e os dados anteriores foram restaurados automaticamente. Detalhe: ${error.message}`);
-  }
+  return replaceBackupData(validatedData, {
+    snapshot,
+    clear: async () => {
+      for (const entity of RESTORE_ORDER) {
+        onProgress?.(`Limpando ${entity}`);
+        await deleteAllOf(entity);
+      }
+    },
+    write: writeCollections,
+    onProgress,
+  });
 };
