@@ -2,81 +2,120 @@ import React from 'react';
 import InfoPage, { InfoSection } from '@/components/public/InfoPage';
 
 export default function Terms() {
+  const contactEmail = import.meta.env.VITE_CONTACT_EMAIL;
+
   return (
     <InfoPage
       title="Termos de Uso"
-      description="Condições para usar o Data Fin, os limites do conteúdo educativo publicado e as responsabilidades de cada parte."
+      description="Condições para usar o Data Fintech e as responsabilidades de cada parte."
       path="/termos"
-      updatedAt="28/10/2026"
+      updatedAt="5 de novembro de 2026"
     >
-      <InfoSection heading="1. Objeto">
+      <InfoSection heading="1. O que é o Data Fintech">
         <p>
-          O Data Fin é um aplicativo de organização financeira que permite registrar contas, lançamentos, orçamentos,
-          metas, dívidas e investimentos, e acompanhar indicadores calculados a partir desses registros. O uso é pessoal
-          e intransferível.
+          Uma ferramenta de organização e acompanhamento financeiro (lançamentos, fluxo de caixa, indicadores,
+          precificação e relatórios). Os cálculos são baseados nas informações que você mesmo informa.
         </p>
       </InfoSection>
 
-      <InfoSection heading="2. Conta e responsabilidade pelos dados">
+      <InfoSection heading="2. Não é aconselhamento">
         <p>
-          Você é responsável pelas informações que registra e por manter suas credenciais de acesso em segurança. Os
-          indicadores exibidos dependem da qualidade e da atualização dos lançamentos inseridos.
+          O aplicativo e os conteúdos educativos têm caráter informativo. Não constituem consultoria financeira,
+          contábil, jurídica, tributária ou de investimentos, nem recomendação de compra ou venda de ativos. Decisões
+          financeiras são de sua responsabilidade; busque um profissional habilitado quando necessário. Exemplos nos
+          conteúdos são hipotéticos.
         </p>
       </InfoSection>
 
-      <InfoSection heading="3. Conteúdo educativo">
-        <p>
-          Os artigos publicados na área de conteúdos são material educativo. Não constituem recomendação de
-          investimento, consultoria financeira, contábil, tributária ou jurídica, e não substituem a análise de um
-          profissional para o seu caso concreto. Os exemplos numéricos são hipotéticos.
-        </p>
+      <InfoSection heading="3. Conta e acesso">
+        <ul className="list-disc space-y-2 pl-5">
+          <li>Você deve fornecer informações verdadeiras e manter sua senha em sigilo.</li>
+          <li>Você é responsável pelas atividades realizadas na sua conta.</li>
+          <li>O uso é pessoal. É proibido compartilhar o acesso de forma que viole a segurança do serviço.</li>
+          <li>O cadastro pode estar limitado ou fechado a critério do responsável pelo aplicativo.</li>
+        </ul>
       </InfoSection>
 
       <InfoSection heading="4. Uso permitido">
         <p>
-          É proibido utilizar o aplicativo para atividades ilícitas, tentar acessar dados de outras pessoas, interferir
-          no funcionamento do serviço ou automatizar acessos de forma abusiva.
+          É proibido: tentar acessar dados de outros usuários; testar ou explorar falhas de segurança; automatizar
+          acessos de forma abusiva; enviar conteúdo ilegal ou malicioso; usar o aplicativo para fraude, lavagem de
+          dinheiro ou qualquer atividade ilícita.
         </p>
       </InfoSection>
 
-      <InfoSection heading="5. Disponibilidade">
+      <InfoSection heading="5. Seus dados">
         <p>
-          O serviço é oferecido no estado em que se encontra. Podem ocorrer interrupções para manutenção, atualizações ou
-          por falhas de terceiros. Recomendamos manter backup periódico da sua base pela tela de backup.
-        </p>
-      </InfoSection>
-
-      <InfoSection heading="6. Propriedade dos seus dados">
-        <p>
-          Os dados financeiros que você registra continuam sendo seus e podem ser exportados em arquivo JSON a qualquer
-          momento.
-        </p>
-      </InfoSection>
-
-      <InfoSection heading="7. Privacidade">
-        <p>
-          O tratamento de dados pessoais está descrito na{' '}
+          Os dados que você registra continuam sendo seus. Você nos autoriza a armazená-los e processá-los apenas para
+          operar o aplicativo, conforme a{' '}
           <a href="/privacidade" className="font-medium text-primary underline-offset-4 hover:underline">
             Política de Privacidade
           </a>
-          , que faz parte destes termos.
+          . Recomendamos manter seus próprios backups e conferir os valores importantes.
         </p>
       </InfoSection>
 
-      <InfoSection heading="8. Alterações">
+      <InfoSection heading="6. Disponibilidade e limites">
         <p>
-          Estes termos podem ser atualizados. A versão vigente é sempre a publicada nesta página, com a data de
-          atualização indicada no topo.
+          O serviço é oferecido "como está", sem garantia de funcionamento ininterrupto ou livre de erros. Ele depende
+          da infraestrutura do Google e está sujeito às cotas e limites dela. Podemos alterar, suspender ou encerrar
+          funcionalidades. Na máxima extensão permitida em lei, não nos responsabilizamos por perdas decorrentes de
+          decisões tomadas com base nos dados ou cálculos do aplicativo, nem por indisponibilidades fora do nosso
+          controle.
         </p>
       </InfoSection>
 
-      <InfoSection heading="9. Legislação aplicável">
+      <InfoSection heading="7. Propriedade intelectual">
         <p>
-          Estes termos são regidos pela legislação brasileira. Dúvidas podem ser encaminhadas pela{' '}
-          <a href="/contato" className="font-medium text-primary underline-offset-4 hover:underline">
-            página de contato
-          </a>
-          .
+          O aplicativo, sua marca e seu conteúdo editorial pertencem ao responsável pelo Data Fintech. Você recebe uma
+          licença limitada, pessoal e revogável de uso. É proibido copiar ou redistribuir o conteúdo sem autorização.
+        </p>
+      </InfoSection>
+
+      <InfoSection heading="8. Publicidade">
+        <p>
+          Páginas públicas de conteúdo educativo podem exibir anúncios de terceiros (Google AdSense). Não nos
+          responsabilizamos pelo conteúdo dos anúncios nem por sites de terceiros.
+        </p>
+      </InfoSection>
+
+      <InfoSection heading="9. Encerramento">
+        <p>Você pode solicitar a exclusão da sua conta a qualquer momento. Podemos suspender contas que violem estes termos.</p>
+      </InfoSection>
+
+      <InfoSection heading="10. Alterações">
+        <p>
+          Estes termos podem ser atualizados. O uso continuado após a atualização indica concordância com a versão
+          vigente.
+        </p>
+      </InfoSection>
+
+      <InfoSection heading="11. Lei aplicável">
+        <p>Estes termos são regidos pelas leis do Brasil.</p>
+      </InfoSection>
+
+      <InfoSection heading="12. Contato">
+        <p>
+          {contactEmail ? (
+            <>
+              Para esclarecer dúvidas, escreva para{' '}
+              <a
+                href={`mailto:${contactEmail}`}
+                className="font-medium text-primary underline-offset-4 hover:underline"
+              >
+                {contactEmail}
+              </a>
+              .
+            </>
+          ) : (
+            <>
+              Para esclarecer dúvidas, use o{' '}
+              <a href="/contato" className="font-medium text-primary underline-offset-4 hover:underline">
+                formulário de contato do aplicativo
+              </a>
+              .
+            </>
+          )}
         </p>
       </InfoSection>
     </InfoPage>

@@ -208,6 +208,17 @@ export default function Register() {
           )}
         </Button>
       </form>
+      <p className="mt-4 text-center text-xs leading-5 text-muted-foreground">
+        Ao continuar, você concorda com os{' '}
+        <Link to="/termos" className="underline underline-offset-4 hover:text-primary">
+          Termos de Uso
+        </Link>{' '}
+        e a{' '}
+        <Link to="/privacidade" className="underline underline-offset-4 hover:text-primary">
+          Política de Privacidade
+        </Link>
+        .
+      </p>
     </AuthLayout>
   );
 }
