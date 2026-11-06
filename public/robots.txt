@@ -2,3 +2,24 @@ User-agent: *
 Allow: /
 Allow: /privacidade
 Allow: /termos
+
+Disallow: /$
+Disallow: /login
+Disallow: /register
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /consolidado
+Disallow: /lancamentos
+Disallow: /contas
+Disallow: /importar-fatura
+Disallow: /orcamento
+Disallow: /metas
+Disallow: /dividas
+Disallow: /investimentos
+Disallow: /dre
+Disallow: /precificacao
+Disallow: /simulador-tributario
+Disallow: /backup
+Disallow: /configuracoes
+
+Sitemap: https://datafintech.com.br/sitemap.xml
