@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import { post, setAccessToken } from "@/services/api";
+import { post } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,6 +9,7 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp
 import AuthLayout from "@/components/AuthLayout";
 import { toast } from "@/components/ui/use-toast";
 import { safeReturnTo } from "@/lib/authReturnTo";
+import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
 
 export default function Register() {
   const [email, setEmail] = useState("");
@@ -42,9 +43,7 @@ export default function Register() {
     setLoading(true);
     try {
       const result = await post('auth.verifyOtp', { email, otp_code: otpCode });
-      if (result?.access_token) {
-        setAccessToken(result.access_token);
-      }
+      if (!result?.user) throw new Error('Não foi possível confirmar a sessão da conta.');
       window.location.href = safeReturnTo();
     } catch (err) {
       setError(err.message || "Invalid verification code");
@@ -137,10 +136,6 @@ export default function Register() {
         </>
       }
     >
-      <p className="mb-6 text-sm text-muted-foreground" role="status">
-        O login com Google não está disponível. Crie sua conta com e-mail e senha.
-      </p>
-
       {error && (
         <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
           {error}
@@ -208,6 +203,12 @@ export default function Register() {
           )}
         </Button>
       </form>
+      <div className="my-5 flex items-center gap-3 text-xs text-muted-foreground">
+        <span className="h-px flex-1 bg-border" />
+        ou
+        <span className="h-px flex-1 bg-border" />
+      </div>
+      <GoogleSignInButton returnTo={safeReturnTo()} onError={setError} />
       <p className="mt-4 text-center text-xs leading-5 text-muted-foreground">
         Ao continuar, você concorda com os{' '}
         <Link to="/termos" className="underline underline-offset-4 hover:text-primary">

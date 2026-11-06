@@ -1,12 +1,13 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import { post, setAccessToken } from "@/services/api";
+import { post } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LogIn, Mail, Lock, Loader2 } from "lucide-react";
 import AuthLayout from "@/components/AuthLayout";
 import { safeReturnTo } from "@/lib/authReturnTo";
+import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -21,8 +22,7 @@ export default function Login() {
     setError("");
     setLoading(true);
     try {
-      const result = await post('auth.login', { email, password });
-      if (result?.access_token) setAccessToken(result.access_token);
+      await post('auth.login', { email, password });
       window.location.href = returnTo;
     } catch (err) {
       setError(err.message || "Invalid email or password");
@@ -48,10 +48,6 @@ export default function Login() {
         </>
       }
     >
-      <p className="mb-6 text-sm text-muted-foreground" role="status">
-        O login com Google não está disponível. Entre com seu e-mail e senha.
-      </p>
-
       {error && (
         <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
           {error}
@@ -109,6 +105,13 @@ export default function Login() {
         </Button>
       </form>
 
+      <div className="my-5 flex items-center gap-3 text-xs text-muted-foreground">
+        <span className="h-px flex-1 bg-border" />
+        ou
+        <span className="h-px flex-1 bg-border" />
+      </div>
+      <GoogleSignInButton returnTo={returnTo} onError={setError} />
+
       <p className="mt-4 text-center text-xs leading-5 text-muted-foreground">
         Ao continuar, você concorda com os{' '}
         <Link to="/termos" className="underline underline-offset-4 hover:text-primary">
@@ -120,6 +123,7 @@ export default function Login() {
         </Link>
         .
       </p>
+
       <p className="mt-6 text-center text-xs text-muted-foreground">
         Just browsing?{" "}
         <a href="/artigos" className="text-primary font-medium hover:underline">

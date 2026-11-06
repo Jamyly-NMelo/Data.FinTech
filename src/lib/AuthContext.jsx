@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { clearAccessToken, get, getAccessToken, post } from '@/services/api';
+import { clearAccessToken, get, post } from '@/services/api';
 
 const AuthContext = createContext();
 
@@ -16,6 +16,50 @@ export const AuthProvider = ({ children }) => {
     checkAppState();
   }, []);
 
+  useEffect(() => {
+    const handleExpiredSession = () => {
+      clearAccessToken();
+      setUser(null);
+      setIsAuthenticated(false);
+      setAuthChecked(true);
+      const returnTo = window.location.pathname + window.location.search;
+      window.location.assign(`/login?returnTo=${encodeURIComponent(returnTo)}`);
+    };
+    window.addEventListener('datafin:session-expired', handleExpiredSession);
+    return () => window.removeEventListener('datafin:session-expired', handleExpiredSession);
+  }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated) return undefined;
+
+    const renewalInterval = 12 * 60 * 60 * 1000;
+    let lastRenewed = Date.now();
+    let renewing = false;
+    const renewSession = async () => {
+      if (renewing || Date.now() - lastRenewed < renewalInterval) return;
+      renewing = true;
+      try {
+        await post('auth.renew');
+        lastRenewed = Date.now();
+      } catch (error) {
+        if (error.status === 401) {
+          window.dispatchEvent(new CustomEvent('datafin:session-expired'));
+        } else {
+          console.error('Não foi possível renovar a sessão.', error);
+        }
+      } finally {
+        renewing = false;
+      }
+    };
+
+    const interval = window.setInterval(renewSession, 60 * 60 * 1000);
+    window.addEventListener('focus', renewSession);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', renewSession);
+    };
+  }, [isAuthenticated]);
+
   const checkAppState = async () => {
     try {
       setIsLoadingPublicSettings(true);
@@ -25,14 +69,7 @@ export const AuthProvider = ({ children }) => {
         const publicSettings = await get('auth.publicSettings');
         setAppPublicSettings(publicSettings);
         
-        // If we got the app public settings successfully, check if user is authenticated
-        if (getAccessToken()) {
-          await checkUserAuth();
-        } else {
-          setIsLoadingAuth(false);
-          setIsAuthenticated(false);
-          setAuthChecked(true);
-        }
+        await checkUserAuth();
         setIsLoadingPublicSettings(false);
       } catch (appError) {
         console.error('App state check failed:', appError);
@@ -67,6 +104,7 @@ export const AuthProvider = ({ children }) => {
       // Now check if the user is authenticated
       setIsLoadingAuth(true);
       const currentUser = await get('auth.me');
+      await post('auth.renew');
       setUser(currentUser);
       setIsAuthenticated(true);
       setIsLoadingAuth(false);
@@ -87,8 +125,9 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = (shouldRedirect = true) => {
-    post('auth.logout').catch(() => {});
+  const logout = async (shouldRedirect = true) => {
+    await post('auth.logout');
+    window.google?.accounts?.id?.disableAutoSelect?.();
     clearAccessToken();
     setUser(null);
     setIsAuthenticated(false);

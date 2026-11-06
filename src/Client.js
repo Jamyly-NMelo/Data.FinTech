@@ -1,35 +1,52 @@
-// URL da implantação do Apps Script (termina em /exec). Defina em .env.local:
-//   VITE_APPS_SCRIPT_URL=https://script.google.com/macros/s/SEU_ID/exec
-const APPS_SCRIPT_URL = import.meta.env.VITE_APPS_SCRIPT_URL;
+const API_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 const TOKEN_STORAGE_KEY = 'datafin.access_token';
 
-export const getAccessToken = () => {
-  if (typeof localStorage === 'undefined') return null;
-  return localStorage.getItem(TOKEN_STORAGE_KEY);
+const clearLegacyToken = () => {
+  try {
+    if (typeof localStorage !== 'undefined') localStorage.removeItem(TOKEN_STORAGE_KEY);
+  } catch {
+    // O gateway não depende de armazenamento local para autenticar.
+  }
 };
 
-export const setAccessToken = (token) => {
-  if (typeof localStorage === 'undefined') return;
-  if (token) localStorage.setItem(TOKEN_STORAGE_KEY, token);
-  else localStorage.removeItem(TOKEN_STORAGE_KEY);
-};
+clearLegacyToken();
 
-export const clearAccessToken = () => setAccessToken(null);
+export const getAccessToken = () => null;
+export const setAccessToken = clearLegacyToken;
+
+export const clearAccessToken = clearLegacyToken;
 
 const queryValue = (value) => (typeof value === 'string' ? value : JSON.stringify(value));
+
+const getCsrfToken = () => {
+  if (typeof document === 'undefined') return '';
+  const entry = document.cookie.split('; ').find((cookie) => cookie.startsWith('__Host-datafin.csrf='));
+  if (!entry) return '';
+  try {
+    return decodeURIComponent(entry.slice(entry.indexOf('=') + 1));
+  } catch {
+    return '';
+  }
+};
+
+const apiUrl = () => {
+  const url = new URL(API_URL, window.location.origin);
+  if (url.origin !== window.location.origin || url.pathname !== '/api' || url.search || url.hash) {
+    throw new Error('VITE_API_BASE_URL deve apontar para /api na mesma origem da aplicação.');
+  }
+  return url;
+};
 
 export const api = {
   async obterDados(acao = 'listar', parametros = {}) {
     try {
-      if (!APPS_SCRIPT_URL) throw new Error('VITE_APPS_SCRIPT_URL não está definida no .env.local');
-      const url = new URL(APPS_SCRIPT_URL);
+      if (!API_URL) throw new Error('VITE_API_BASE_URL não está definida.');
+      const url = apiUrl();
       url.searchParams.set('action', acao);
       Object.entries(parametros).forEach(([chave, valor]) => {
         if (valor !== undefined && valor !== null) url.searchParams.set(chave, queryValue(valor));
       });
-      const accessToken = getAccessToken();
-      if (accessToken) url.searchParams.set('access_token', accessToken);
-      const resposta = await fetch(url);
+      const resposta = await fetch(url, { credentials: 'same-origin' });
       return await resposta.json();
     } catch (erro) {
       console.error('Erro ao buscar dados do Apps Script:', erro);
@@ -39,11 +56,21 @@ export const api = {
 
   async salvarDados(dados) {
     try {
-      if (!APPS_SCRIPT_URL) throw new Error('VITE_APPS_SCRIPT_URL não está definida no .env.local');
-      const resposta = await fetch(APPS_SCRIPT_URL, {
+      if (!API_URL) throw new Error('VITE_API_BASE_URL não está definida.');
+      if (!getCsrfToken()) {
+        const bootstrap = await api.obterDados('auth.publicSettings');
+        if (bootstrap?.status === 'erro' || !getCsrfToken()) {
+          throw new Error(bootstrap?.mensagem || 'Não foi possível iniciar a proteção CSRF.');
+        }
+      }
+      const resposta = await fetch(apiUrl(), {
         method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8',
+          'X-CSRF-Token': getCsrfToken(),
+        },
         body: JSON.stringify(dados),
+        credentials: 'same-origin',
       });
       return await resposta.json();
     } catch (erro) {
@@ -53,25 +80,26 @@ export const api = {
   },
 };
 
-const unwrapResult = (result) => {
+const unwrapResult = (result, action) => {
   if (result?.status === 'erro' || result?.error) {
     const message = result.mensagem || result.error?.message || result.error || 'Falha ao comunicar com o Apps Script.';
     const error = new Error(message);
     error.status = result.httpStatus || result.statusCode;
     error.data = result;
+    if (error.status === 401 && !String(action).startsWith('auth.') && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('datafin:session-expired'));
+    }
     throw error;
   }
   return result && Object.hasOwn(result, 'data') ? result.data : result;
 };
 
 export async function get(action = 'listar', params = {}) {
-  return unwrapResult(await api.obterDados(action, params));
+  return unwrapResult(await api.obterDados(action, params), action);
 }
 
 export async function post(action, payload = {}) {
-  const accessToken = getAccessToken();
-  const body = { ...payload, action, ...(accessToken ? { access_token: accessToken } : {}) };
-  return unwrapResult(await api.salvarDados(body));
+  return unwrapResult(await api.salvarDados({ ...payload, action }), action);
 }
 
 api.get = get;
