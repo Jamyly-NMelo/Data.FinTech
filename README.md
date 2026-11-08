@@ -1,60 +1,28 @@
 # Data.FinTech
 
-Aplicação React + Vite para controle financeiro. O frontend chama o Web App do
-Google Apps Script, que valida a sessão e lê/grava os dados no Google Sheets:
+Aplicação web React com API em Google Apps Script e persistência no Google Sheets.
+
+## Arquitetura
 
 ```text
-React → Google Apps Script → Google Sheets
+React -> Google Apps Script -> Google Sheets
 ```
 
-As definições originais das entidades e campos estão preservadas em
-`docs/schema/`.
+O frontend usa as ações `auth.*` e `records.*` do Web App. O Apps Script autentica e autoriza cada operação antes de acessar as planilhas.
 
-## Configuração local
+## Desenvolvimento local
 
-Requisitos: Node.js e npm.
+Requisitos: Node.js compatível com Vite e npm.
 
-1. Instale as dependências:
+```bash
+npm install
+cp .env.example .env.local
+npm run dev
+```
 
-   ```bash
-   npm install
-   ```
+Configure `VITE_APPS_SCRIPT_URL` com a URL `/exec` do Web App implantado e `VITE_GOOGLE_CLIENT_ID` com o ID OAuth Web usado no login Google. `.env.local` é local e não deve ser commitado.
 
-2. Copie `.env.example` para `.env.local` e informe a URL do Web App:
-
-   ```dotenv
-   VITE_APPS_SCRIPT_URL=https://script.google.com/macros/s/SEU_DEPLOYMENT_ID/exec
-   ```
-
-   `.env.local` é ignorado pelo Git. Não coloque tokens, senhas ou URLs de
-   implantação reais em arquivos versionados.
-
-3. Inicie o frontend:
-
-   ```bash
-   npm run dev
-   ```
-
-   O Vite mostra a URL local no terminal. A API precisa estar implantada e
-   acessível para que login e dados funcionem.
-
-## Implantar o Apps Script
-
-O backend é implantado separadamente no projeto Apps Script associado à
-planilha. O código-fonte está em `apps-script/Codigo.gs` e implementa as ações
-`auth.*` e `records.*` usadas pelo frontend.
-
-1. Configure as propriedades e permissões exigidas pelo código do script.
-2. Publique como **Web app**, usando a identidade e o acesso apropriados para
-   sua aplicação.
-3. Copie a URL de implantação terminada em `/exec` para `VITE_APPS_SCRIPT_URL`
-   no ambiente de execução do frontend.
-4. Ao publicar uma nova versão do script, atualize a implantação do Web App.
-
-Não publique credenciais ou tokens no frontend. A autenticação da aplicação
-usa o `access_token` retornado pelo fluxo de login.
-
-## Verificações
+Comandos de verificação:
 
 ```bash
 npm run lint
@@ -62,5 +30,37 @@ npm run build
 node --test src/lib/finance/tests/*.test.js
 ```
 
-O `package.json` ainda não define um script `npm test`; os testes existentes são
-executados diretamente pelo runner do Node.js.
+## Login Google
+
+O frontend usa Google Identity Services e envia a credencial ao Apps Script pela ação `auth.googleLogin`. Configure o mesmo ID do cliente OAuth Web no frontend (`VITE_GOOGLE_CLIENT_ID`) e nas Script Properties (`GOOGLE_CLIENT_ID`).
+
+No Google Cloud Console:
+
+1. Configure a tela de consentimento OAuth.
+2. Crie ou selecione um cliente OAuth do tipo **Aplicativo da Web**.
+3. Em **Origens JavaScript autorizadas**, cadastre cada origem usada, incluindo a origem local exibida pelo servidor Vite e a origem HTTPS de produção. Informe apenas esquema, domínio e porta, sem caminho.
+4. Use o ID do cliente nas configurações do frontend e do Apps Script.
+
+## Configurar as propriedades do Apps Script
+
+No projeto Apps Script, abra **Configurações do projeto > Propriedades do script** e configure:
+
+- `GOOGLE_CLIENT_ID`: ID do cliente OAuth Web.
+- `ALLOW_REGISTRATION`: `true` para permitir cadastro ou `false` para desativá-lo.
+- `APP_URL`: origem pública da aplicação usada nos retornos de autenticação.
+- `ADMIN_EMAIL` e `ADMIN_SENHA`: use somente durante a execução manual de `criarAdmin` para provisionar a conta administrativa. Remova ou limpe essas propriedades após a criação.
+
+Nunca coloque senhas, tokens ou segredos em variáveis `VITE_*`, no código do navegador ou no repositório. As variáveis `VITE_*` são incluídas no bundle público.
+
+## Implantar o Apps Script
+
+O backend está em `apps-script/Codigo.gs`.
+
+1. Abra ou sincronize esse arquivo no projeto Apps Script vinculado à planilha e autorize o acesso solicitado ao Google Sheets.
+2. Crie uma implantação do tipo **App da Web**.
+3. Defina **Executar como**: **Eu**.
+4. Defina **Quem pode acessar**: **Qualquer pessoa**. O acesso às operações continua sujeito à autenticação e autorização implementadas pelo backend.
+5. Ao publicar alterações futuras, edite a implantação existente e selecione uma nova versão. Mantenha a mesma implantação e a mesma URL `/exec` para evitar reconfigurar o frontend.
+6. Configure essa URL como `VITE_APPS_SCRIPT_URL` no ambiente local e no ambiente de hospedagem do frontend.
+
+Não publique chaves, senhas, tokens de sessão ou URLs reais de implantação em documentação ou commits. Use `.env.example` apenas como modelo com placeholders.

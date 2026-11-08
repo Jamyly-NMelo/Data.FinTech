@@ -15,7 +15,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useToast } from '@/components/ui/use-toast';
+import { SITE_CONFIG } from '@/config/site';
 
 const LINKS = [
   ['/','Painel'],
@@ -52,6 +54,7 @@ const getInitials = (user) => {
 function WorkspaceShell() {
   const { user, logout } = useAuth();
   const { loading, error, refresh } = useWorkspace();
+  const { toast } = useToast();
   const { environment, setEnvironment, privacy, togglePrivacy, theme, setTheme } = usePreferences();
   const [menuOpen, setMenuOpen] = useState(false);
   const isDark = theme === 'dark' || (
@@ -59,6 +62,17 @@ function WorkspaceShell() {
     typeof window !== 'undefined' &&
     window.matchMedia('(prefers-color-scheme: dark)').matches
   );
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (logoutError) {
+      toast({
+        title: 'Não foi possível encerrar a sessão',
+        description: logoutError.message,
+        variant: 'destructive',
+      });
+    }
+  };
 
   if (loading) {
     return (
@@ -101,7 +115,7 @@ function WorkspaceShell() {
               <SheetHeader className="border-b border-border/70 px-5 py-5">
                 <SheetTitle className="flex items-center gap-2 font-heading text-primary">
                   <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary text-xs text-primary-foreground">DF</span>
-                  Data Fintech
+                  {SITE_CONFIG.name}
                 </SheetTitle>
                 <SheetDescription className="sr-only">Navegação principal do aplicativo.</SheetDescription>
               </SheetHeader>
@@ -192,6 +206,7 @@ function WorkspaceShell() {
                   aria-label="Abrir menu do usuário"
                 >
                   <Avatar className="h-8 w-8 sm:h-9 sm:w-9">
+                    {user?.picture_url ? <AvatarImage src={user.picture_url} alt="" referrerPolicy="no-referrer" /> : null}
                     <AvatarFallback className="bg-[#0F2C59] text-xs font-semibold text-white">
                       {getInitials(user)}
                     </AvatarFallback>
@@ -212,7 +227,7 @@ function WorkspaceShell() {
                     Configurações
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => logout()}>
+                <DropdownMenuItem onSelect={handleLogout}>
                   <LogOut className="mr-2 h-4 w-4" />
                   Sair
                 </DropdownMenuItem>

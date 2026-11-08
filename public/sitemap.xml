@@ -1,30 +1,30 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://datafintech.com.br/artigos</loc>
+    <loc>__SITE_URL__/artigos</loc>
   </url>
   <url>
-    <loc>https://datafintech.com.br/artigos/margem-de-contribuicao</loc>
+    <loc>__SITE_URL__/artigos/margem-de-contribuicao</loc>
   </url>
   <url>
-    <loc>https://datafintech.com.br/artigos/formacao-de-precos</loc>
+    <loc>__SITE_URL__/artigos/formacao-de-precos</loc>
   </url>
   <url>
-    <loc>https://datafintech.com.br/artigos/organizacao-financeira-pessoal</loc>
+    <loc>__SITE_URL__/artigos/organizacao-financeira-pessoal</loc>
   </url>
   <url>
-    <loc>https://datafintech.com.br/artigos/fluxo-de-caixa-para-mei</loc>
+    <loc>__SITE_URL__/artigos/fluxo-de-caixa-para-mei</loc>
   </url>
   <url>
-    <loc>https://datafintech.com.br/sobre</loc>
+    <loc>__SITE_URL__/sobre</loc>
   </url>
   <url>
-    <loc>https://datafintech.com.br/contato</loc>
+    <loc>__SITE_URL__/contato</loc>
   </url>
   <url>
-    <loc>https://datafintech.com.br/privacidade</loc>
+    <loc>__SITE_URL__/privacidade</loc>
   </url>
   <url>
-    <loc>https://datafintech.com.br/termos</loc>
+    <loc>__SITE_URL__/termos</loc>
   </url>
 </urlset>

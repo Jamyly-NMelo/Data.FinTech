@@ -22,4 +22,4 @@ Disallow: /simulador-tributario
 Disallow: /backup
 Disallow: /configuracoes
 
-Sitemap: https://datafintech.com.br/sitemap.xml
+Sitemap: __SITE_URL__/sitemap.xml

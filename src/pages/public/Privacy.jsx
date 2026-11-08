@@ -1,5 +1,6 @@
 import React from 'react';
 import InfoPage, { InfoSection } from '@/components/public/InfoPage';
+import { SITE_CONFIG } from '@/config/site';
 
 export default function Privacy() {
   const contactEmail = import.meta.env.VITE_CONTACT_EMAIL;
@@ -7,7 +8,7 @@ export default function Privacy() {
   return (
     <InfoPage
       title="Política de Privacidade"
-      description="Saiba quais dados o Data Fintech trata, para que são usados e quais são os seus direitos."
+      description={`Saiba quais dados ${SITE_CONFIG.name} trata, para que são usados e quais são os seus direitos.`}
       path="/privacidade"
       updatedAt="5 de novembro de 2026"
     >

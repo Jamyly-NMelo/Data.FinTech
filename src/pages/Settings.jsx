@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import PageHeader from '@/components/common/PageHeader';
 import SectionCard from '@/components/common/SectionCard';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
@@ -14,8 +15,10 @@ import { useWorkspace } from '@/lib/workspace';
 import { usePreferences } from '@/lib/preferences';
 import { useAuth } from '@/lib/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import DefaultCategoriesDialog from '@/components/settings/DefaultCategoriesDialog';
 import { ENVIRONMENTS } from '@/lib/finance/metrics';
+import { SITE_CONFIG } from '@/config/site';
 import { ListPlus, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react';
 
 const KIND_OPTIONS = [
@@ -47,6 +50,13 @@ const THEME_OPTIONS = [
 
 export default function Settings() {
   const { user } = useAuth();
+  const initials = String(user?.full_name || user?.email?.split('@')[0] || 'U')
+    .split(/[\s._-]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase();
   const { preferences, update, privacy, togglePrivacy, theme, setTheme, environment, setEnvironment } = usePreferences();
   const { categories, create, createMany, update: updateRecord, remove } = useWorkspace();
   const { toast } = useToast();
@@ -168,15 +178,31 @@ export default function Settings() {
             </div>
           </div>
 
-          <div className="mt-4 rounded-xl bg-muted/40 p-3 text-xs text-muted-foreground">
-            <p className="font-medium text-foreground">{user?.full_name || 'Sua conta'}</p>
-            <p>{user?.email}</p>
+        </SectionCard>
+      </div>
+
+      <SectionCard title="Perfil e segurança" description="Dados vinculados à sua conta autenticada e opções de segurança.">
+        <div className="flex flex-wrap items-start gap-4">
+          <Avatar className="h-14 w-14">
+            {user?.picture_url ? <AvatarImage src={user.picture_url} alt="" referrerPolicy="no-referrer" /> : null}
+            <AvatarFallback className="bg-primary text-primary-foreground">
+              {initials}
+            </AvatarFallback>
+          </Avatar>
+          <div className="min-w-0 flex-1">
+            <p className="font-medium">{user?.full_name || 'Sua conta'}</p>
+            <p className="truncate text-sm text-muted-foreground">{user?.email}</p>
+            <p className="mt-1 break-all text-[10px] text-muted-foreground">ID interno: {user?.id || '—'}</p>
+            <p className="mt-1 text-[10px] text-muted-foreground">Criada em: {user?.created_date ? new Date(user.created_date).toLocaleDateString('pt-BR') : '—'}</p>
             <Badge variant="outline" className="mt-2 text-[10px]">
               {user?.role === 'admin' ? 'Administrador' : 'Usuário'}
             </Badge>
           </div>
-        </SectionCard>
-      </div>
+          <Button asChild size="sm" variant="outline">
+            <Link to="/forgot-password">Redefinir senha por e-mail</Link>
+          </Button>
+        </div>
+      </SectionCard>
 
       <SectionCard
         title="Categorias"
@@ -254,13 +280,13 @@ export default function Settings() {
         </div>
       </SectionCard>
 
-      <SectionCard title="Sobre o produto" description="Data Fintech transforma dados financeiros em indicadores claros.">
+      <SectionCard title="Sobre o produto" description={`${SITE_CONFIG.name} transforma dados financeiros em indicadores claros.`}>
         <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
           <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-brand-navy font-heading text-xs font-bold text-white dark:bg-primary dark:text-primary-foreground">
             DF
           </span>
           <div>
-            <p className="font-medium text-foreground">Data Fintech — Data Fin</p>
+            <p className="font-medium text-foreground">{SITE_CONFIG.name}</p>
             <p>“Finanças simples para quem quer focar no que importa.”</p>
           </div>
           <Badge variant="outline" className="text-[10px]">

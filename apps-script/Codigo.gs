@@ -5,6 +5,8 @@
 // Protocolo (o mesmo que o front React já usa):
 //   GET  ?action=records.list&entity=Transaction&query={...}&sort=-due_date&limit=25&cursor=0&access_token=...
 //   POST { "action": "records.create", "entity": "Account", "values": {...}, "access_token": "..." }
+// O Web App deve aceitar chamadas apenas do gateway: configure GATEWAY_SECRET
+// nas Propriedades do script e use o mesmo segredo no Cloud Run Secret Manager.
 //
 // Primeiros passos (resumo):
 //   1) Rode setupBanco() uma vez (cria as abas).
@@ -17,6 +19,7 @@ const VERSION = "2.0.0";
 const SPREADSHEET_ID = "1iCWyX2vH7W-1LpKciD69XwEG_6b2pZD98X7Uj4S5F6k";
 
 const SESSION_DAYS = 30;       // validade do login
+const SESSION_MAX_DAYS = 90;   // exigir nova autenticação após 90 dias
 const OTP_MINUTES = 15;        // validade do código por e-mail
 const HASH_ROUNDS = 300;       // custo do hash de senha
 const MAX_LOGIN_FAILS = 8;     // tentativas erradas antes de bloquear por 15 min
@@ -26,11 +29,25 @@ const MAX_LIMIT = 500;         // máximo de registros por página
 const T_USERS = "_Users";
 const T_SESSIONS = "_Sessions";
 const T_OTPS = "_Otps";
-const COLS_USERS = ["id", "email", "full_name", "role", "password_hash", "password_salt", "verified", "created_date", "updated_date"];
-const COLS_SESSIONS = ["token_hash", "user_id", "expires_at", "created_date"];
+const COLS_USERS = ["id", "email", "full_name", "role", "password_hash", "password_salt", "verified", "google_sub", "picture_url", "created_date", "updated_date"];
+const COLS_SESSIONS = ["token_hash", "session_id", "user_id", "issued_at", "expires_at", "created_date"];
 const COLS_OTPS = ["email", "purpose", "code_hash", "expires_at", "attempts", "created_date"];
+const T_AUDIT = "_AuditLog";
+const COLS_AUDIT = ["created_date", "event", "user_id", "entity", "record_id"];
 
 const SYSTEM_COLUMNS = ["id", "created_date", "updated_date", "created_by_id", "created_by"];
+const OWNED_REFERENCES = {
+  "Budget": { "category_id": "Category" },
+  "CardInvoice": { "account_id": "Account" },
+  "InvestmentOperation": { "investment_id": "Investment" },
+  "Transaction": {
+    "account_id": "Account",
+    "counterpart_account_id": "Account",
+    "card_invoice_account_id": "Account",
+    "debt_id": "Debt",
+    "category_id": "Category"
+  }
+};
 
 // Esquema das entidades (gerado a partir de base44/entities/*.jsonc)
 const SCHEMA = {
@@ -646,30 +663,47 @@ function doPost(e) {
 }
 
 function dispatch_(p, method) {
+  var action = "";
+  var gatewayAuthorized = false;
   try {
-    var action = String(p.action || "").trim();
+    action = String(p.action || "").trim();
     if (!action) {
       return out_({ status: "sucesso", data: { app: "Data.FinTech API", versao: VERSION, online: true } });
+    }
+    if (action !== "auth.publicSettings") {
+      requireGateway_(p);
+      gatewayAuthorized = true;
     }
     var h = ACTIONS[action];
     if (!h) throw new HttpError("Ação desconhecida: " + action, 404);
     if (h.write && method !== "POST") throw new HttpError("Use POST para esta ação.", 405);
 
+    var actor = optionalUser_(p);
     var result;
     if (h.write) {
       var lock = LockService.getScriptLock();
       lock.waitLock(20000);
-      try { result = h.fn(p); } finally { lock.releaseLock(); }
+      try {
+        result = h.fn(p);
+        var auditActor = actor || (result && result.user) ||
+          (result && result.user_id ? { id: result.user_id, role: "user" } : null);
+        auditEvent_(action, auditActor, p.entity, result && result.id, true);
+      } finally {
+        lock.releaseLock();
+      }
     } else {
       result = h.fn(p);
     }
     return out_({ status: "sucesso", data: result === undefined ? null : result });
   } catch (err) {
+    if (gatewayAuthorized && /^auth\.(register|login|verifyOtp|googleLogin|logout|resetPasswordRequest|resetPassword)$/.test(action)) {
+      auditEvent_(action + ".failure", null, "", "", false);
+    }
     if (err instanceof HttpError) {
       return out_({ status: "erro", mensagem: err.message, httpStatus: err.httpStatus });
     }
-    Logger.log("Erro interno: " + (err && err.stack ? err.stack : err));
-    return out_({ status: "erro", mensagem: "Erro interno: " + (err && err.message ? err.message : err), httpStatus: 500 });
+    Logger.log("Erro interno na ação " + (action || "desconhecida") + ".");
+    return out_({ status: "erro", mensagem: "Erro interno.", httpStatus: 500 });
   }
 }
 
@@ -679,10 +713,13 @@ const ACTIONS = {
   "auth.verifyOtp": { write: true, fn: authVerifyOtp_ },
   "auth.resendOtp": { write: true, fn: authResendOtp_ },
   "auth.login": { write: true, fn: authLogin_ },
+  "auth.googleLogin": { write: true, fn: authGoogleLogin_ },
   "auth.me": { fn: authMe_ },
+  "auth.renew": { write: true, fn: authRenew_ },
   "auth.logout": { write: true, fn: authLogout_ },
   "auth.resetPasswordRequest": { write: true, fn: authResetRequest_ },
   "auth.resetPassword": { write: true, fn: authResetPassword_ },
+  "audit.record": { write: true, fn: auditRecord_ },
   "auth.googleLoginUrl": { fn: function () { throw new HttpError("Login com Google não está configurado.", 501); } },
   "mcp.consentInfo": { fn: function () { throw new HttpError("Recurso não disponível.", 501); } },
   "invoices.upload": { write: true, fn: function () { throw new HttpError("Importação de fatura por arquivo não está disponível nesta versão.", 501); } },
@@ -707,6 +744,60 @@ function ss_() {
 
 function colsOf_(entity) {
   return SYSTEM_COLUMNS.concat(Object.keys(SCHEMA[entity].props));
+}
+
+function gatewaySecretMatches_(supplied, expected) {
+  var left = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(supplied || ""), Utilities.Charset.UTF_8);
+  var right = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(expected || ""), Utilities.Charset.UTF_8);
+  var difference = left.length ^ right.length;
+  for (var i = 0; i < left.length; i++) difference |= left[i] ^ right[i];
+  return difference === 0 && String(expected || "").length >= 32;
+}
+
+function requireGateway_(p) {
+  var expected = PropertiesService.getScriptProperties().getProperty("GATEWAY_SECRET");
+  if (!expected) throw new HttpError("Gateway não configurado.", 503);
+  if (!gatewaySecretMatches_(p.gateway_secret, expected)) throw new HttpError("Requisição não autorizada.", 401);
+}
+
+function auditEvent_(event, actor, entity, recordId, success) {
+  try {
+    var table = readTable_(T_AUDIT, COLS_AUDIT, null);
+    appendRows_(table, [{
+      created_date: nowIso_(),
+      event: String(event || "unknown").slice(0, 80),
+      user_id: actor && actor.id ? String(actor.id) : "",
+      entity: String(entity || "").slice(0, 80),
+      record_id: String(recordId || "").slice(0, 80)
+    }]);
+    pruneAuditLog_();
+  } catch (err) {
+    Logger.log("Falha ao registrar auditoria para ação " + String(event || "unknown").slice(0, 80) + ".");
+    if (success) throw new HttpError("Não foi possível registrar a auditoria da operação.", 503);
+  }
+}
+
+function pruneAuditLog_() {
+  var cache = CacheService.getScriptCache();
+  if (cache.get("audit:pruned")) return;
+  var table = readTable_(T_AUDIT, COLS_AUDIT, null);
+  var cutoff = Date.now() - 365 * 86400000;
+  var expired = table.rows.filter(function (row) {
+    var time = Date.parse(String(row.obj.created_date || ""));
+    return Number.isFinite(time) && time < cutoff;
+  }).map(function (row) { return row.rowNum; });
+  deleteRowNums_(table, expired);
+  cache.put("audit:pruned", "1", 21600);
+}
+
+function auditRecord_(p) {
+  var user = requireUser_(p);
+  var event = String(p.event || "");
+  if (event !== "backup.export" && event !== "backup.restore" && event !== "backup.restore.start") {
+    throw new HttpError("Evento de auditoria inválido.", 400);
+  }
+  auditEvent_(event, user, "", "", true);
+  return { ok: true };
 }
 
 function isTextCol_(entity, col) {
@@ -988,6 +1079,7 @@ function buildRecord_(entity, values, user) {
       throw new HttpError("Campo obrigatório ausente: " + k, 400);
     }
   });
+  validateOwnedReferences_(entity, vals, user);
   var now = nowIso_();
   var obj = {
     id: Utilities.getUuid().replace(/-/g, "").slice(0, 24),
@@ -1034,6 +1126,7 @@ function recUpdate_(p) {
   Object.keys(values).forEach(function (k) {
     if (def.props[k] && SYSTEM_COLUMNS.indexOf(k) < 0) row[k] = encode_(def.props[k], values[k]);
   });
+  validateOwnedReferences_(entity, row, user);
   def.required.forEach(function (k) {
     var v = row[k];
     if (v === undefined || v === null || v === "") throw new HttpError("Campo obrigatório ausente: " + k, 400);
@@ -1061,6 +1154,16 @@ function recDeleteMany_(p) {
   var nums = data.list.filter(function (x) { return matches_(x.rec, q); }).map(function (x) { return x.rowNum; });
   deleteRowNums_(data.table, nums);
   return { deleted: nums.length };
+}
+
+function validateOwnedReferences_(entity, values, user) {
+  var refs = OWNED_REFERENCES[entity] || {};
+  Object.keys(refs).forEach(function (field) {
+    var id = String(values[field] || "");
+    if (!id || (field === "category_id" && id === "dividas")) return;
+    var owned = loadOwned_(refs[field], user).list.some(function (item) { return item.rec.id === id; });
+    if (!owned) throw new HttpError("Referência inválida ou não autorizada: " + field + ".", 403);
+  });
 }
 
 // ---------------------------------------------------------------
@@ -1097,7 +1200,14 @@ function checkPassword_(v) {
 }
 
 function publicUser_(u) {
-  return { id: String(u.id), email: u.email, full_name: u.full_name || String(u.email).split("@")[0], role: u.role || "user" };
+  return {
+    id: String(u.id),
+    email: u.email,
+    full_name: u.full_name || String(u.email).split("@")[0],
+    role: u.role || "user",
+    created_date: u.created_date || null,
+    picture_url: u.picture_url || null
+  };
 }
 
 function usersTable_() { return readTable_(T_USERS, COLS_USERS, null); }
@@ -1136,9 +1246,23 @@ function createSession_(userId) {
   var token = newToken_();
   var t = readTable_(T_SESSIONS, COLS_SESSIONS, null);
   var now = Date.now();
-  deleteRowNums_(t, t.rows.filter(function (r) { return Number(r.obj.expires_at) < now; }).map(function (r) { return r.rowNum; }));
+  deleteRowNums_(t, t.rows.filter(function (r) {
+    var issuedAt = Date.parse(String(r.obj.issued_at || r.obj.created_date || ""));
+    var expiresAt = Number(r.obj.expires_at);
+    return !Number.isFinite(expiresAt) ||
+      expiresAt <= now ||
+      !Number.isFinite(issuedAt) ||
+      now - issuedAt >= SESSION_MAX_DAYS * 86400000;
+  }).map(function (r) { return r.rowNum; }));
   t = readTable_(T_SESSIONS, COLS_SESSIONS, null);
-  appendRows_(t, [{ token_hash: sha256hex_(token), user_id: userId, expires_at: now + SESSION_DAYS * 86400000, created_date: nowIso_() }]);
+  appendRows_(t, [{
+    token_hash: sha256hex_(token),
+    session_id: Utilities.getUuid().replace(/-/g, ""),
+    user_id: userId,
+    issued_at: nowIso_(),
+    expires_at: now + SESSION_DAYS * 86400000,
+    created_date: nowIso_()
+  }]);
   return token;
 }
 
@@ -1147,7 +1271,10 @@ function optionalUser_(p) {
   if (!token) return null;
   var hash = sha256hex_(token);
   var s = readTable_(T_SESSIONS, COLS_SESSIONS, null).rows.filter(function (r) { return r.obj.token_hash === hash; })[0];
-  if (!s || Number(s.obj.expires_at) < Date.now()) return null;
+  var expiresAt = s ? Number(s.obj.expires_at) : NaN;
+  if (!s || !Number.isFinite(expiresAt) || expiresAt <= Date.now()) return null;
+  var issuedAt = Date.parse(String(s.obj.issued_at || s.obj.created_date || ""));
+  if (!Number.isFinite(issuedAt) || Date.now() - issuedAt >= SESSION_MAX_DAYS * 86400000) return null;
   var u = usersTable_().rows.filter(function (r) { return String(r.obj.id) === String(s.obj.user_id); })[0];
   if (!u || !isVerified_(u.obj.verified)) return null;
   return publicUser_(u.obj);
@@ -1215,12 +1342,62 @@ function authVerifyOtp_(p) {
   var t = usersTable_();
   var u = findUser_(t, email);
   if (!u) throw new HttpError("Usuário não encontrado.", 404);
-  var firstUser = !t.rows.some(function (r) { return isVerified_(r.obj.verified); });
   u.obj.verified = true;
-  if (firstUser) u.obj.role = "admin";
+  if (!u.obj.role) u.obj.role = "user";
   u.obj.updated_date = nowIso_();
   writeRow_(t, u.rowNum, u.obj);
   return { access_token: createSession_(String(u.obj.id)), user: publicUser_(u.obj) };
+}
+
+function authGoogleLogin_(p) {
+  var googleSub = String(p.google_sub || "").trim();
+  var email = normEmail_(p.email);
+  if (!googleSub || p.email_verified !== true) throw new HttpError("Identidade Google não verificada.", 401);
+  var picture = String(p.picture_url || "");
+  if (picture && !/^https:\/\/lh3\.googleusercontent\.com\//.test(picture)) picture = "";
+  var table = usersTable_();
+  var bySub = table.rows.filter(function (row) { return String(row.obj.google_sub || "") === googleSub; })[0];
+  var byEmail = findUser_(table, email);
+  var userRow = bySub || byEmail;
+
+  if (bySub && byEmail && String(bySub.obj.id) !== String(byEmail.obj.id)) {
+    throw new HttpError("Não foi possível vincular esta conta Google.", 409);
+  }
+  if (bySub && String(bySub.obj.email).toLowerCase() !== email && byEmail) {
+    throw new HttpError("O e-mail Google já está vinculado a outra conta.", 409);
+  }
+  if (!userRow) {
+    if (!allowRegistration_(table)) throw new HttpError("Cadastro fechado. Peça ao administrador para liberar.", 403);
+    var now = nowIso_();
+    var created = {
+      id: Utilities.getUuid().replace(/-/g, "").slice(0, 24),
+      email: email,
+      full_name: String(p.full_name || email.split("@")[0]).slice(0, 160),
+      role: "user",
+      verified: true,
+      google_sub: googleSub,
+      picture_url: picture,
+      created_date: now,
+      updated_date: now
+    };
+    appendRows_(table, [created]);
+    return { access_token: createSession_(String(created.id)), user: publicUser_(created) };
+  }
+
+  if (byEmail && !isVerified_(byEmail.obj.verified)) {
+    throw new HttpError("Confirme primeiro o e-mail da conta existente.", 403);
+  }
+  if (userRow.obj.google_sub && String(userRow.obj.google_sub) !== googleSub) {
+    throw new HttpError("Esta conta já está vinculada a outro login Google.", 409);
+  }
+  userRow.obj.google_sub = googleSub;
+  userRow.obj.verified = true;
+  userRow.obj.email = email;
+  userRow.obj.full_name = String(p.full_name || userRow.obj.full_name || email.split("@")[0]).slice(0, 160);
+  userRow.obj.picture_url = picture;
+  userRow.obj.updated_date = nowIso_();
+  writeRow_(table, userRow.rowNum, userRow.obj);
+  return { access_token: createSession_(String(userRow.obj.id)), user: publicUser_(userRow.obj) };
 }
 
 function authLogin_(p) {
@@ -1242,6 +1419,26 @@ function authLogin_(p) {
 }
 
 function authMe_(p) { return requireUser_(p); }
+
+function authRenew_(p) {
+  var user = requireUser_(p);
+  var token = String(p.access_token || "");
+  var hash = sha256hex_(token);
+  var table = readTable_(T_SESSIONS, COLS_SESSIONS, null);
+  var session = table.rows.filter(function (row) { return row.obj.token_hash === hash; })[0];
+  if (!session) throw new HttpError("Sessão inválida ou expirada.", 401);
+
+  var now = Date.now();
+  var issuedAt = Date.parse(String(session.obj.issued_at || session.obj.created_date || ""));
+  if (!Number.isFinite(issuedAt) || now - issuedAt >= SESSION_MAX_DAYS * 86400000) {
+    deleteRowNums_(table, [session.rowNum]);
+    throw new HttpError("Sessão expirada. Entre novamente.", 401);
+  }
+
+  session.obj.expires_at = now + SESSION_DAYS * 86400000;
+  writeRow_(table, session.rowNum, session.obj);
+  return { ok: true, user: user, expires_at: session.obj.expires_at };
+}
 
 function authLogout_(p) {
   var token = String(p.access_token || "");
@@ -1284,7 +1481,7 @@ function authResetPassword_(p) {
   deleteRowNums_(ot, [rec.rowNum]);
   var st = readTable_(T_SESSIONS, COLS_SESSIONS, null); // encerra logins antigos
   deleteRowNums_(st, st.rows.filter(function (r) { return String(r.obj.user_id) === String(u.obj.id); }).map(function (r) { return r.rowNum; }));
-  return { ok: true };
+  return { ok: true, user_id: String(u.obj.id) };
 }
 
 // ---------------------------------------------------------------
@@ -1297,6 +1494,7 @@ function setupBanco() {
   getSheet_(T_USERS, COLS_USERS, null);
   getSheet_(T_SESSIONS, COLS_SESSIONS, null);
   getSheet_(T_OTPS, COLS_OTPS, null);
+  getSheet_(T_AUDIT, COLS_AUDIT, null);
   Logger.log("Banco pronto na planilha: " + ss_().getName() + " (" + ss_().getSheets().length + " abas)");
 }
 
@@ -1326,5 +1524,6 @@ function criarAdmin() {
   obj.updated_date = now;
   if (existing) writeRow_(t, existing.rowNum, obj); else appendRows_(t, [obj]);
   props.deleteProperty("ADMIN_SENHA");
-  Logger.log("Administrador pronto: " + email + " (a propriedade ADMIN_SENHA foi apagada)");
+  auditEvent_("admin.provision", null, T_USERS, String(obj.id), true);
+  Logger.log("Administrador pronto; a propriedade ADMIN_SENHA foi apagada.");
 }

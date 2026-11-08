@@ -1,32 +1,29 @@
 # Instruções do projeto
 
-## Arquitetura
+## Arquitetura e segurança
 
-Este repositório contém o frontend React + Vite. A aplicação chama o Web App
-Google Apps Script, que valida autenticação e usa o Google Sheets como banco:
-
-```text
-React → Apps Script → Google Sheets
-```
-
-O cliente da API fica em `src/Client.js` e é reexportado por
-`src/services/api.js`. Preserve o protocolo existente: leituras via GET,
-escritas via POST com JSON e autenticação por `access_token`.
+- O backend ativo é `apps-script/Codigo.gs`, com dados no Google Sheets. Preserve o contrato `auth.*` e `records.*` usado pelo frontend.
+- O Apps Script autentica e autoriza cada operação. Não confie em identidade, proprietário ou papel enviados pelo navegador; valide entidade, referências e permissões no backend.
+- O login Google usa Google Identity Services no frontend e a ação `auth.googleLogin` no Apps Script.
+- Configure o ID público do OAuth Web em `VITE_GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_ID`. Não coloque segredos em variáveis `VITE_*`, pois elas são expostas no bundle.
+- Nunca versione `.env.local`, credenciais, tokens, senhas ou URLs reais de implantação. Mantenha `.env.example` com placeholders.
+- `ADMIN_EMAIL` e `ADMIN_SENHA` são propriedades temporárias, usadas somente para executar `criarAdmin`; remova-as após provisionar a conta.
+- Não habilite upload de faturas ou links públicos de arquivos sem armazenamento privado e autenticado. Backups locais permanecem limitados a 10 MiB.
 
 ## Ambiente e execução
 
-- Configure `VITE_APPS_SCRIPT_URL` em `.env.local`; nunca versione URLs de
-  implantação reais, tokens ou senhas.
-- Rode `npm install` e `npm run dev` para desenvolvimento local.
-- Rode `npm run lint` e `npm run build` para validar alterações.
-- O backend é implantado separadamente como Web App do Google Apps Script.
-  Consulte `README.md` para o fluxo de implantação.
+- `npm install` instala dependências.
+- `npm run dev` inicia o frontend Vite.
+- `npm run lint` executa o ESLint.
+- `npm run build` compila a aplicação para produção.
+- `node --test src/lib/finance/tests/*.test.js` executa os testes da lógica financeira.
+- O Apps Script é implantado separadamente; siga `README.md` para configuração do Web App, das propriedades do script e do OAuth.
 
 ## Convenções
 
-- Mantenha componentes em `src/components/`, páginas em `src/pages/` e lógica
-  compartilhada em `src/lib/`.
-- Consulte `docs/schema/` para os nomes de entidades e campos.
+- Mantenha componentes em `src/components/`, páginas em `src/pages/` e lógica compartilhada em `src/lib/`.
+- Consulte `docs/schema/` para nomes de entidades e campos esperados pela API e planilha.
 - Reutilize `src/services/api.js` para chamadas ao backend.
-- Faça mudanças focadas e preserve os nomes de entidades e campos esperados pela
-  API e pelas abas do Google Sheets.
+- Preserve os componentes Radix existentes em `src/components/ui/`.
+- Não altere `src/Client.js` nem o protocolo `auth.*`/`records.*` sem necessidade comprovada e autorização.
+- Faça mudanças focadas, atualize a documentação relacionada e valide com os comandos do projeto.

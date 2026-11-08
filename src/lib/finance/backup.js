@@ -7,9 +7,11 @@
 import { round2, toNumber } from './money.js';
 import { KIND, isCancelled, isTransfer } from './ledger.js';
 import { monthKey } from './periods.js';
+import { createSiteConfig } from '../../config/site-core.js';
 
 export const FORMAT_VERSION = 1;
 export const APP_ID = 'data-fintech';
+const PRODUCT_NAME = createSiteConfig(import.meta.env).name;
 
 const STRING = 'string';
 const NUMBER = 'number';
@@ -444,7 +446,7 @@ export const buildBackupPayload = (collections = {}, meta = {}) => {
   });
   return {
     app: APP_ID,
-    product: 'Data Fintech',
+    product: PRODUCT_NAME,
     format_version: FORMAT_VERSION,
     generated_at: meta.generated_at || new Date().toISOString(),
     generated_by: meta.generated_by || null,

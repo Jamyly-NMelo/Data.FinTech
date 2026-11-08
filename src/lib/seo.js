@@ -1,9 +1,9 @@
 import { useEffect } from 'react';
+import { getCanonicalUrl, SITE_CONFIG } from '@/config/site';
 
-const SITE_NAME = 'Data Fin';
-const DEFAULT_TITLE = 'Data Fintech — Finanças simples para quem quer focar no que importa';
+const DEFAULT_TITLE = `${SITE_CONFIG.name} — Finanças simples para quem quer focar no que importa`;
 const DEFAULT_DESCRIPTION =
-  'Data Fintech — Finanças simples para quem quer focar no que importa. Gestão financeira pessoal, empresarial e de investimentos em uma única visão.';
+  `${SITE_CONFIG.name} — Finanças simples para quem quer focar no que importa. Gestão financeira pessoal, empresarial e de investimentos em uma única visão.`;
 
 function setMeta(attribute, key, content) {
   let node = document.head.querySelector(`meta[${attribute}="${key}"]`);
@@ -11,6 +11,10 @@ function setMeta(attribute, key, content) {
     node = document.createElement('meta');
     node.setAttribute(attribute, key);
     document.head.appendChild(node);
+  }
+  if (content == null) {
+    node.remove();
+    return;
   }
   node.setAttribute('content', content);
 }
@@ -35,23 +39,33 @@ function setCanonical(href) {
  */
 export function usePageMeta({ title, description, path, noindex = false }) {
   useEffect(() => {
-    const pageTitle = title ? `${title} · ${SITE_NAME}` : DEFAULT_TITLE;
+    const pageTitle = title ? `${title} · ${SITE_CONFIG.name}` : DEFAULT_TITLE;
     const pageDescription = description || DEFAULT_DESCRIPTION;
+    const canonicalUrl = noindex ? null : getCanonicalUrl(path || window.location.pathname);
 
     document.title = pageTitle;
     setMeta('name', 'description', pageDescription);
     setMeta('property', 'og:title', pageTitle);
+    setMeta('property', 'og:site_name', SITE_CONFIG.name);
     setMeta('property', 'og:description', pageDescription);
+    setMeta('property', 'og:url', canonicalUrl);
+    setMeta('name', 'twitter:title', pageTitle);
+    setMeta('name', 'twitter:description', pageDescription);
     setMeta('name', 'robots', noindex ? 'noindex, follow' : 'index, follow');
     // Conteúdo inexistente não recebe endereço canônico.
-    setCanonical(noindex ? null : path ? `${window.location.origin}${path}` : window.location.href);
+    setCanonical(canonicalUrl);
 
     return () => {
       document.title = DEFAULT_TITLE;
       setMeta('name', 'description', DEFAULT_DESCRIPTION);
       setMeta('property', 'og:title', DEFAULT_TITLE);
+      setMeta('property', 'og:site_name', SITE_CONFIG.name);
       setMeta('property', 'og:description', DEFAULT_DESCRIPTION);
+      setMeta('property', 'og:url', getCanonicalUrl(window.location.pathname));
+      setMeta('name', 'twitter:title', DEFAULT_TITLE);
+      setMeta('name', 'twitter:description', DEFAULT_DESCRIPTION);
       setMeta('name', 'robots', 'index, follow');
+      setCanonical(getCanonicalUrl(window.location.pathname));
     };
   }, [title, description, path, noindex]);
 }

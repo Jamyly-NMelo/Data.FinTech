@@ -1,5 +1,6 @@
 import React from 'react';
 import InfoPage, { InfoSection } from '@/components/public/InfoPage';
+import { SITE_CONFIG } from '@/config/site';
 
 export default function Terms() {
   const contactEmail = import.meta.env.VITE_CONTACT_EMAIL;
@@ -7,11 +8,11 @@ export default function Terms() {
   return (
     <InfoPage
       title="Termos de Uso"
-      description="Condições para usar o Data Fintech e as responsabilidades de cada parte."
+      description={`Condições para usar ${SITE_CONFIG.name} e as responsabilidades de cada parte.`}
       path="/termos"
       updatedAt="5 de novembro de 2026"
     >
-      <InfoSection heading="1. O que é o Data Fintech">
+      <InfoSection heading={`1. O que é ${SITE_CONFIG.name}`}>
         <p>
           Uma ferramenta de organização e acompanhamento financeiro (lançamentos, fluxo de caixa, indicadores,
           precificação e relatórios). Os cálculos são baseados nas informações que você mesmo informa.
@@ -67,7 +68,7 @@ export default function Terms() {
 
       <InfoSection heading="7. Propriedade intelectual">
         <p>
-          O aplicativo, sua marca e seu conteúdo editorial pertencem ao responsável pelo Data Fintech. Você recebe uma
+          O aplicativo, sua marca e seu conteúdo editorial pertencem ao responsável por {SITE_CONFIG.name}. Você recebe uma
           licença limitada, pessoal e revogável de uso. É proibido copiar ou redistribuir o conteúdo sem autorização.
         </p>
       </InfoSection>

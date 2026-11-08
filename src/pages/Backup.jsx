@@ -9,6 +9,7 @@ import { useWorkspace } from '@/lib/workspace';
 import { useAuth } from '@/lib/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { exportWorkspaceData, replaceWorkspaceData } from '@/lib/data';
+import { post } from '@/services/api';
 import {
   BACKUP_ENTITIES,
   FORMAT_VERSION,
@@ -32,6 +33,7 @@ const ENTITY_LABELS = {
   TaxScenario: 'Cenários tributários',
   Preferences: 'Preferências',
 };
+const MAX_BACKUP_BYTES = 10 * 1024 * 1024;
 
 export default function Backup() {
   const { refresh } = useWorkspace();
@@ -53,6 +55,7 @@ export default function Backup() {
     try {
       const collections = await exportWorkspaceData();
       const payload = buildBackupPayload(collections, { generated_by: user?.email || null });
+      await post('audit.record', { event: 'backup.export' });
       const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -77,16 +80,43 @@ export default function Backup() {
     setFileName(file.name);
     setFileText('');
     setResult(null);
-    const text = await file.text();
-    setFileText(text);
-    const validation = parseBackupText(text);
-    setResult(validation);
-    if (!validation.ok) {
+    const rejectFile = (message) => {
+      setResult({
+        ok: false,
+        errors: [message],
+        warnings: [],
+        preview: { importCounts: { create: 0, ignore: 0, reject: 1 } },
+      });
       toast({
         title: 'Arquivo recusado',
-        description: 'Nenhum dado foi alterado. Veja os problemas listados abaixo.',
+        description: message,
         variant: 'destructive',
       });
+    };
+    if (file.size > MAX_BACKUP_BYTES) {
+      rejectFile('O backup excede o limite de 10 MB. Nenhum dado foi alterado.');
+      event.target.value = '';
+      return;
+    }
+    if (!file.name.toLowerCase().endsWith('.json') && file.type !== 'application/json') {
+      rejectFile('Selecione um arquivo JSON de backup. Nenhum dado foi alterado.');
+      event.target.value = '';
+      return;
+    }
+    try {
+      const text = await file.text();
+      const validation = parseBackupText(text);
+      setFileText(text);
+      setResult(validation);
+      if (!validation.ok) {
+        toast({
+          title: 'Arquivo recusado',
+          description: 'Nenhum dado foi alterado. Veja os problemas listados abaixo.',
+          variant: 'destructive',
+        });
+      }
+    } catch {
+      rejectFile('Não foi possível ler o arquivo selecionado. Nenhum dado foi alterado.');
     }
   };
 
@@ -114,7 +144,9 @@ export default function Backup() {
 
     setRestoring(true);
     try {
+      await post('audit.record', { event: 'backup.restore.start' });
       await restoreBackupText(fileText, (data) => replaceWorkspaceData(data, { onProgress: setProgress }));
+      await post('audit.record', { event: 'backup.restore' });
       await refresh();
       setResult(null);
       setFileName('');

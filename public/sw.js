@@ -1,4 +1,4 @@
-/* Data Fintech — Service Worker (cache controlado) */
+/* Service worker with controlled caching. */
 // v2: descarta documentos em cache que ainda continham o script de anúncios.
 const CACHE = 'datafin-v2';
 const PRECACHE = ['/', '/index.html', '/manifest.json', '/icon.svg'];

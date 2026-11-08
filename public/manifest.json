@@ -1,6 +1,6 @@
 {
-  "name": "Data Fintech — Finanças simples",
-  "short_name": "Data Fin",
+  "name": "__SITE_NAME__ — Finanças simples",
+  "short_name": "__SITE_NAME__",
   "description": "Gestão financeira pessoal, empresarial e de investimentos com indicadores claros.",
   "lang": "pt-BR",
   "dir": "ltr",

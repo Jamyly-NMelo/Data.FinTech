@@ -1,12 +1,13 @@
 import React from 'react';
 import { Link, Outlet } from 'react-router-dom';
+import { SITE_CONFIG } from '@/config/site';
 
 export default function PublicLayout() {
   return (
     <div className="min-h-screen">
       <header className="border-b border-border/70 bg-card">
         <div className="mx-auto flex max-w-3xl items-center gap-5 px-4 py-4">
-          <Link to="/" className="mr-auto font-heading font-bold text-primary">Data Fintech</Link>
+          <Link to="/" className="mr-auto font-heading font-bold text-primary">{SITE_CONFIG.name}</Link>
           <nav className="flex flex-wrap gap-4 text-xs text-muted-foreground" aria-label="Navegação pública">
             <Link to="/artigos" className="hover:text-primary">Artigos</Link>
             <Link to="/sobre" className="hover:text-primary">Sobre</Link>

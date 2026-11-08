@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { SITE_CONFIG } from '@/config/site';
 
 export default function AuthLayout({ icon: Icon, title, subtitle, footer, children }) {
   return (
@@ -7,7 +8,7 @@ export default function AuthLayout({ icon: Icon, title, subtitle, footer, childr
       <section className="w-full max-w-md rounded-3xl border border-border/70 bg-card p-6 shadow-[var(--shadow-card)] sm:p-8">
         <Link to="/" className="mb-8 inline-flex items-center gap-2 font-heading text-sm font-bold text-primary">
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">DF</span>
-          Data Fintech
+          {SITE_CONFIG.name}
         </Link>
         <div className="mb-6">
           {Icon ? (
