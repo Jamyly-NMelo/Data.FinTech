@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /api/
 
-Sitemap: https://data-fintech-1.base44.app/sitemap.xml
+Sitemap: https://www.datafintech.com.br/sitemap.xml
