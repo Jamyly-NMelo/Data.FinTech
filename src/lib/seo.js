@@ -61,11 +61,12 @@ export function usePageMeta({ title, description, path, noindex = false }) {
       setMeta('property', 'og:title', DEFAULT_TITLE);
       setMeta('property', 'og:site_name', SITE_CONFIG.name);
       setMeta('property', 'og:description', DEFAULT_DESCRIPTION);
-      setMeta('property', 'og:url', getCanonicalUrl(window.location.pathname));
+      const currentCanonicalUrl = getCanonicalUrl(window.location.pathname);
+      setMeta('property', 'og:url', currentCanonicalUrl);
       setMeta('name', 'twitter:title', DEFAULT_TITLE);
       setMeta('name', 'twitter:description', DEFAULT_DESCRIPTION);
       setMeta('name', 'robots', 'index, follow');
-      setCanonical(getCanonicalUrl(window.location.pathname));
+      setCanonical(currentCanonicalUrl);
     };
   }, [title, description, path, noindex]);
 }

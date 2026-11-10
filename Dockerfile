@@ -5,7 +5,9 @@ COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
 ARG VITE_GOOGLE_CLIENT_ID
+ARG VITE_SITE_URL
 ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
+ENV VITE_SITE_URL=$VITE_SITE_URL
 RUN npm run build && npm prune --omit=dev
 
 FROM node:22-slim AS runtime

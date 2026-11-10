@@ -21,6 +21,7 @@ npm run dev
 ```
 
 Configure `VITE_APPS_SCRIPT_URL` com a URL `/exec` do Web App implantado e `VITE_GOOGLE_CLIENT_ID` com o ID OAuth Web usado no login Google. `.env.local` é local e não deve ser commitado.
+O domínio canônico do frontend é definido exclusivamente por `VITE_SITE_URL`. Em produção no Netlify, use `https://datafintech.netlify.app`; no desenvolvimento local, o canonical acompanha a origem local quando a variável não está configurada.
 
 Comandos de verificação:
 
@@ -38,8 +39,8 @@ No Google Cloud Console:
 
 1. Configure a tela de consentimento OAuth.
 2. Crie ou selecione um cliente OAuth do tipo **Aplicativo da Web**.
-3. Em **Origens JavaScript autorizadas**, cadastre cada origem usada, incluindo a origem local exibida pelo servidor Vite e a origem HTTPS de produção. Informe apenas esquema, domínio e porta, sem caminho.
-4. Use o ID do cliente nas configurações do frontend e do Apps Script.
+3. Em **Origens JavaScript autorizadas**, cadastre cada origem usada, incluindo a origem local exibida pelo servidor Vite e a origem de produção `https://datafintech.netlify.app`. Informe apenas esquema, domínio e porta, sem caminho.
+4. Use o ID do cliente OAuth Web nas configurações do frontend e do Apps Script. Este projeto usa Google Identity Services com callback de credencial, não um fluxo OAuth baseado em URL de redirecionamento.
 
 ## Configurar as propriedades do Apps Script
 
@@ -47,7 +48,7 @@ No projeto Apps Script, abra **Configurações do projeto > Propriedades do scri
 
 - `GOOGLE_CLIENT_ID`: ID do cliente OAuth Web.
 - `ALLOW_REGISTRATION`: `true` para permitir cadastro ou `false` para desativá-lo.
-- `APP_URL`: origem pública da aplicação usada nos retornos de autenticação.
+- `APP_URL`: origem pública da aplicação usada para compor links de redefinição de senha.
 - `ADMIN_EMAIL` e `ADMIN_SENHA`: use somente durante a execução manual de `criarAdmin` para provisionar a conta administrativa. Remova ou limpe essas propriedades após a criação.
 
 Nunca coloque senhas, tokens ou segredos em variáveis `VITE_*`, no código do navegador ou no repositório. As variáveis `VITE_*` são incluídas no bundle público.

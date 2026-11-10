@@ -15,12 +15,13 @@ function siteConfigPlugin() {
   let root = process.cwd();
   let outDir = resolve(root, 'dist');
   let siteConfig = createSiteConfig();
+  let hasConfiguredSiteUrl = false;
 
-  const renderPublicFile = async (fileName) => {
+  const renderPublicFile = async (fileName, config = siteConfig) => {
     const template = await readFile(resolve(root, 'public', fileName), 'utf8');
-    const encodedName = JSON.stringify(siteConfig.name).slice(1, -1);
+    const encodedName = JSON.stringify(config.name).slice(1, -1);
     return template
-      .replaceAll('__SITE_URL__', siteConfig.url)
+      .replaceAll('__SITE_URL__', config.url)
       .replaceAll('__SITE_NAME__', encodedName);
   };
   const escapeHtml = (value) => value.replace(/[&<>"']/g, (character) => ({
@@ -34,14 +35,32 @@ function siteConfigPlugin() {
   return {
     name: 'site-config',
     config(_config, { mode }) {
-      siteConfig = createSiteConfig(loadEnv(mode, root, 'VITE_'));
+      const env = loadEnv(mode, root, 'VITE_');
+      const isDevelopment = mode === 'development';
+      hasConfiguredSiteUrl = !isDevelopment && Boolean(env.VITE_SITE_URL?.trim());
+      siteConfig = createSiteConfig(isDevelopment ? { VITE_SITE_NAME: env.VITE_SITE_NAME } : env);
+      if (mode !== 'development' && !siteConfig.url) {
+        throw new Error('VITE_SITE_URL deve conter uma origem HTTPS válida para o build de produção.');
+      }
     },
     configResolved(config) {
       root = config.root;
       outDir = resolve(root, config.build.outDir);
     },
-    transformIndexHtml(html) {
-      return html.replaceAll('__SITE_NAME__', escapeHtml(siteConfig.name));
+    transformIndexHtml(html, context = {}) {
+      const developmentOrigin = context.server?.resolvedUrls?.local?.[0] ||
+        (context.server ? `http://localhost:${context.server.config.server.port || 5173}` : '');
+      const configuredSiteUrl = siteConfig.url || (
+        context.server ? createSiteConfig({}, developmentOrigin).url : ''
+      );
+      if (!configuredSiteUrl) {
+        throw new Error('VITE_SITE_URL deve estar configurada para gerar canonical e Open Graph.');
+      }
+
+      const siteUrl = escapeHtml(configuredSiteUrl);
+      return html
+        .replaceAll('__SITE_NAME__', escapeHtml(siteConfig.name))
+        .replaceAll('__SITE_URL__', siteUrl);
     },
     configureServer(server) {
       server.middlewares.use(async (request, response, next) => {
@@ -50,7 +69,13 @@ function siteConfigPlugin() {
         if (!metadata || !['GET', 'HEAD'].includes(request.method || 'GET')) return next();
 
         try {
-          const content = await renderPublicFile(metadata.fileName);
+          let requestSiteConfig = siteConfig;
+          if (!hasConfiguredSiteUrl) {
+            const protocol = request.headers['x-forwarded-proto'] || 'http';
+            const host = request.headers.host || 'localhost:5173';
+            requestSiteConfig = createSiteConfig({}, `${protocol}://${host}`);
+          }
+          const content = await renderPublicFile(metadata.fileName, requestSiteConfig);
           response.statusCode = 200;
           response.setHeader('Content-Type', metadata.contentType);
           response.end(request.method === 'HEAD' ? undefined : content);

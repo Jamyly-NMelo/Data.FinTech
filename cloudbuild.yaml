@@ -2,6 +2,7 @@ substitutions:
   _REGION: us-central1
   _REPOSITORY: data-fintech
   _VITE_GOOGLE_CLIENT_ID: SET_AT_BUILD
+  _VITE_SITE_URL: https://datafintech.netlify.app
 
 steps:
   - name: gcr.io/cloud-builders/docker
@@ -9,6 +10,8 @@ steps:
       - build
       - --build-arg
       - VITE_GOOGLE_CLIENT_ID=${_VITE_GOOGLE_CLIENT_ID}
+      - --build-arg
+      - VITE_SITE_URL=${_VITE_SITE_URL}
       - -t
       - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/data-fintech:latest
       - .

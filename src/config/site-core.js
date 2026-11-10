@@ -1,31 +1,48 @@
-export const DEFAULT_SITE_URL = 'https://datafintech.com.br';
 export const DEFAULT_SITE_NAME = 'DataFintech';
-export const SITE_DOMAIN = 'datafintech.com.br';
 
-export function createSiteConfig(env = {}) {
-  const configuredUrl = typeof env.VITE_SITE_URL === 'string' ? env.VITE_SITE_URL.trim() : '';
-  let url = configuredUrl || DEFAULT_SITE_URL;
+function parseSiteUrl(value) {
+  if (!value) return null;
 
   try {
-    const parsedUrl = new URL(url);
-    if (!['http:', 'https:'].includes(parsedUrl.protocol)) url = DEFAULT_SITE_URL;
-  } catch {
-    url = DEFAULT_SITE_URL;
-  }
+    const url = new URL(value);
+    const isLocalhost = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+    const isSecure = url.protocol === 'https:';
+    const isLocalDevelopment = url.protocol === 'http:' && isLocalhost;
 
-  url = url.replace(/\/+$/, '') || DEFAULT_SITE_URL;
+    if (
+      (!isSecure && !isLocalDevelopment) ||
+      url.username ||
+      url.password ||
+      (url.pathname !== '/' && url.pathname !== '') ||
+      url.search ||
+      url.hash
+    ) {
+      return null;
+    }
+
+    return url;
+  } catch {
+    return null;
+  }
+}
+
+export function createSiteConfig(env = {}, developmentOrigin = '') {
+  const configuredUrl = typeof env.VITE_SITE_URL === 'string' ? env.VITE_SITE_URL.trim() : '';
+  const siteUrl = parseSiteUrl(configuredUrl || developmentOrigin);
   const configuredName = typeof env.VITE_SITE_NAME === 'string' ? env.VITE_SITE_NAME.trim() : '';
 
   return {
-    url,
+    url: siteUrl?.origin || '',
     name: configuredName || DEFAULT_SITE_NAME,
-    domain: SITE_DOMAIN,
+    domain: siteUrl?.hostname || '',
   };
 }
 
 export function buildCanonicalUrl(baseUrl, path = '') {
+  const normalizedBase = String(baseUrl || '').replace(/\/+$/, '');
+  if (!normalizedBase) return '';
+
   const rawPath = String(path || '').trim();
-  const normalizedBase = baseUrl.replace(/\/+$/, '');
   if (!rawPath) return normalizedBase;
 
   const normalizedPath = rawPath.replace(/^\/+/, '');

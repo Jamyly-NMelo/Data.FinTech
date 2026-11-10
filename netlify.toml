@@ -4,7 +4,7 @@
 
 [build.environment]
   NODE_VERSION = "22"
-  VITE_SITE_URL = "https://datafintech.com.br"
+  VITE_SITE_URL = "https://datafintech.netlify.app"
 
 [[redirects]]
   from = "/*"
