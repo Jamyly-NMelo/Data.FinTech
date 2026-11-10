@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { SITE_CONFIG } from '@/config/site';
 
 const EMPTY_FORM = { name: '', email: '', message: '' };
 
@@ -36,7 +37,7 @@ export default function Contact() {
   return (
     <InfoPage
       title="Contato"
-      description="Envie sugestões de temas, correções de conteúdo ou dúvidas sobre o aplicativo. As mensagens ficam registradas para a equipe do Data Fin."
+      description={`Envie sugestões de temas, correções de conteúdo ou dúvidas sobre o aplicativo. As mensagens ficam registradas para a equipe de ${SITE_CONFIG.name}.`}
       path="/contato"
     >
       <InfoSection heading="Formulário de contato">

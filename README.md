@@ -1,82 +1,67 @@
-{
- "cells": [
-  {
-   "cell_type": "code",
-   "execution_count": null,
-   "id": "75a048ac",
-   "metadata": {},
-   "outputs": [],
-   "source": [
-    "# Base44 Project\n",
-    "\n",
-    "Use this repository to run and edit the app locally, then publish changes back through Base44.\n",
-    "\n",
-    "Any change pushed to the repo will also be reflected in the Base44 Builder.\n",
-    "\n",
-    "## Prerequisites\n",
-    "\n",
-    "1. Clone the repository using the project's Git URL.\n",
-    "2. Navigate to the project directory.\n",
-    "3. Install dependencies: `npm install`.\n",
-    "4. Install the Base44 CLI: `npm install -g base44@latest`.\n",
-    "5. Install [Deno](https://docs.deno.com/runtime/getting_started/installation/) — the local Base44 backend runs on it.\n",
-    "\n",
-    "Run `base44 --help` (or see the [CLI reference](https://docs.base44.com/developers/references/cli/commands/introduction)) for the full command surface.\n",
-    "\n",
-    "## Run Locally\n",
-    "\n",
-    "Three commands, from the project root:\n",
-    "\n",
-    "```bash\n",
-    "base44 login   # one-time per machine\n",
-    "base44 link    # one-time per clone\n",
-    "base44 dev     # local backend + frontend together\n",
-    "```\n",
-    "\n",
-    "Open the frontend URL that `base44 dev` prints (typically `http://localhost:5173`).\n",
-    "\n",
-    "Notes:\n",
-    "\n",
-    "- **Every fresh clone needs `base44 link`.** It writes `base44/.app.jsonc` (the app-id pointer), which is deliberately gitignored. Your app id is in the Builder URL (`app.base44.com/apps/<id>/...`); `base44 link --help` shows the non-interactive flags.\n",
-    "- **`base44 dev` runs the frontend for you** (via `site.serveCommand` in this repo's `base44/config.jsonc`) — never run `npm run dev` yourself: alone it serves a UI with no backend behind it (`[base44] Proxy not enabled`, every `/api` call fails), and alongside `base44 dev` the second Vite silently takes the next port and you end up looking at the wrong one.\n",
-    "- **The app must be published at least once for the UI to load under `base44 dev`.** The frontend boots by fetching app settings from the hosted app; before the first publish that fails and every page redirects to login. The local API works regardless.\n",
-    "- Entities, functions, and auth run locally — entity data is **in-memory only**, wiped when `base44 dev` restarts. Everything else (Core integrations, OAuth login) is forwarded to your deployed app. Full breakdown: [Local development overview](https://docs.base44.com/developers/backend/overview/local-dev/local-development-overview).\n",
-    "\n",
-    "## Frontend Only, Hosted Backend\n",
-    "\n",
-    "To work on just the frontend against your app's live hosted backend:\n",
-    "\n",
-    "```bash\n",
-    "base44 dev --remote\n",
-    "```\n",
-    "\n",
-    "⚠️ In this mode writes go to your app's **production data** — plain `base44 dev` keeps everything local.\n",
-    "\n",
-    "## Publish Your Changes\n",
-    "\n",
-    "After pushing your changes to git, open the Base44 dashboard and publish the app:\n",
-    "\n",
-    "```bash\n",
-    "base44 dashboard open\n",
-    "```\n",
-    "\n",
-    "This repo syncs to Base44 through git, so publish from the dashboard rather than `base44 deploy` — a CLI deploy ships your local tree directly, bypassing the sync, and the deployed state silently diverges from the repo.\n",
-    "\n",
-    "## Docs & Support\n",
-    "\n",
-    "GitHub integration: [https://docs.base44.com/developers/app-code/local-development/github](https://docs.base44.com/developers/app-code/local-development/github)\n",
-    "\n",
-    "Local development: [https://docs.base44.com/developers/backend/overview/local-dev/local-development-overview](https://docs.base44.com/developers/backend/overview/local-dev/local-development-overview)\n",
-    "\n",
-    "Support: [https://app.base44.com/support](https://app.base44.com/support)\n"
-   ]
-  }
- ],
- "metadata": {
-  "language_info": {
-   "name": "python"
-  }
- },
- "nbformat": 4,
- "nbformat_minor": 5
-}
+# Data.FinTech
+
+Aplicação web React com API em Google Apps Script e persistência no Google Sheets.
+
+## Arquitetura
+
+```text
+React -> Google Apps Script -> Google Sheets
+```
+
+O frontend usa as ações `auth.*` e `records.*` do Web App. O Apps Script autentica e autoriza cada operação antes de acessar as planilhas.
+
+## Desenvolvimento local
+
+Requisitos: Node.js compatível com Vite e npm.
+
+```bash
+npm install
+cp .env.example .env.local
+npm run dev
+```
+
+Configure `VITE_APPS_SCRIPT_URL` com a URL `/exec` do Web App implantado e `VITE_GOOGLE_CLIENT_ID` com o ID OAuth Web usado no login Google. `.env.local` é local e não deve ser commitado.
+O domínio canônico do frontend é definido exclusivamente por `VITE_SITE_URL`. Em produção no Netlify, use `https://datafintech.netlify.app`; no desenvolvimento local, o canonical acompanha a origem local quando a variável não está configurada.
+
+Comandos de verificação:
+
+```bash
+npm run lint
+npm run build
+node --test src/lib/finance/tests/*.test.js
+```
+
+## Login Google
+
+O frontend usa Google Identity Services e envia a credencial ao Apps Script pela ação `auth.googleLogin`. Configure o mesmo ID do cliente OAuth Web no frontend (`VITE_GOOGLE_CLIENT_ID`) e nas Script Properties (`GOOGLE_CLIENT_ID`).
+
+No Google Cloud Console:
+
+1. Configure a tela de consentimento OAuth.
+2. Crie ou selecione um cliente OAuth do tipo **Aplicativo da Web**.
+3. Em **Origens JavaScript autorizadas**, cadastre cada origem usada, incluindo a origem local exibida pelo servidor Vite e a origem de produção `https://datafintech.netlify.app`. Informe apenas esquema, domínio e porta, sem caminho.
+4. Use o ID do cliente OAuth Web nas configurações do frontend e do Apps Script. Este projeto usa Google Identity Services com callback de credencial, não um fluxo OAuth baseado em URL de redirecionamento.
+
+## Configurar as propriedades do Apps Script
+
+No projeto Apps Script, abra **Configurações do projeto > Propriedades do script** e configure:
+
+- `GOOGLE_CLIENT_ID`: ID do cliente OAuth Web.
+- `ALLOW_REGISTRATION`: `true` para permitir cadastro ou `false` para desativá-lo.
+- `APP_URL`: origem pública da aplicação usada para compor links de redefinição de senha.
+- `ADMIN_EMAIL` e `ADMIN_SENHA`: use somente durante a execução manual de `criarAdmin` para provisionar a conta administrativa. Remova ou limpe essas propriedades após a criação.
+
+Nunca coloque senhas, tokens ou segredos em variáveis `VITE_*`, no código do navegador ou no repositório. As variáveis `VITE_*` são incluídas no bundle público.
+
+## Implantar o Apps Script
+
+O backend está em `apps-script/Codigo.gs`.
+
+1. Abra ou sincronize esse arquivo no projeto Apps Script vinculado à planilha e autorize o acesso solicitado ao Google Sheets.
+2. Crie uma implantação do tipo **App da Web**.
+3. Defina **Executar como**: **Eu**.
+4. Defina **Quem pode acessar**: **Qualquer pessoa**. O acesso às operações continua sujeito à autenticação e autorização implementadas pelo backend.
+5. Ao publicar alterações futuras, edite a implantação existente e selecione uma nova versão. Mantenha a mesma implantação e a mesma URL `/exec` para evitar reconfigurar o frontend.
+6. Configure essa URL como `VITE_APPS_SCRIPT_URL` no ambiente local e no ambiente de hospedagem do frontend.
+
+Não publique chaves, senhas, tokens de sessão ou URLs reais de implantação em documentação ou commits. Use `.env.example` apenas como modelo com placeholders.

@@ -1,16 +1,17 @@
 import React from 'react';
 import InfoPage, { InfoSection } from '@/components/public/InfoPage';
+import { SITE_CONFIG } from '@/config/site';
 
 export default function About() {
   return (
     <InfoPage
-      title="Sobre o Data Fin"
-      description="O Data Fin é um aplicativo de gestão financeira para acompanhar, no mesmo lugar, as finanças pessoais, as do negócio e os investimentos."
+      title={`Sobre ${SITE_CONFIG.name}`}
+      description={`${SITE_CONFIG.name} é um aplicativo de gestão financeira para acompanhar, no mesmo lugar, as finanças pessoais, as do negócio e os investimentos.`}
       path="/sobre"
     >
       <InfoSection heading="O que o aplicativo faz">
         <p>
-          O Data Fin reúne contas, lançamentos, orçamento, metas, dívidas, investimentos e indicadores em quatro
+          {SITE_CONFIG.name} reúne contas, lançamentos, orçamento, metas, dívidas, investimentos e indicadores em quatro
           ambientes: Pessoas Físicas (PF), Empresarial (PJ), Investimentos e Visão Consolidada. Cada ambiente mostra
           apenas as ferramentas que fazem sentido para ele.
         </p>

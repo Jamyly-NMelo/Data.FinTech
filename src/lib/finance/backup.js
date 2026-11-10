@@ -7,9 +7,11 @@
 import { round2, toNumber } from './money.js';
 import { KIND, isCancelled, isTransfer } from './ledger.js';
 import { monthKey } from './periods.js';
+import { createSiteConfig } from '../../config/site-core.js';
 
 export const FORMAT_VERSION = 1;
 export const APP_ID = 'data-fintech';
+const PRODUCT_NAME = createSiteConfig(import.meta.env).name;
 
 const STRING = 'string';
 const NUMBER = 'number';
@@ -91,6 +93,7 @@ export const ENTITY_SCHEMAS = {
   Debt: {
     fields: {
       name: STRING, creditor: STRING, environment: STRING, principal: NUMBER, outstanding_balance: NUMBER,
+      interest_outstanding: NUMBER, short_term_balance: NUMBER, long_term_balance: NUMBER,
       annual_interest_rate: NUMBER, future_interest: NUMBER, installment_amount: NUMBER, installments_total: NUMBER,
       installments_paid: NUMBER, start_date: DATE, maturity_date: DATE, term: STRING, due_day: NUMBER, notes: STRING,
     },
@@ -151,9 +154,14 @@ export const BACKUP_ENTITIES = Object.keys(ENTITY_SCHEMAS);
 
 const SYSTEM_FIELDS = ['id', 'created_by_id', 'created_by', 'created_date', 'updated_date'];
 const EXPORT_ONLY_STRIPPED = ['created_by_id', 'created_by', 'created_date', 'updated_date'];
+const RESTORE_IGNORED_ENTITIES = ['Preferences'];
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 const isPlainObject = (value) => typeof value === 'object' && value !== null && !Array.isArray(value);
+const countRows = (collections) => Object.values(collections || {}).reduce(
+  (total, rows) => total + (Array.isArray(rows) ? rows.length : rows === undefined ? 0 : 1),
+  0,
+);
 
 /** Valida e normaliza um payload de backup. Nunca lança exceção. */
 export const validateBackup = (payload) => {
@@ -163,7 +171,13 @@ export const validateBackup = (payload) => {
   const preview = { counts: {}, totals: {}, samples: [], period: null };
 
   if (!isPlainObject(payload)) {
-    return { ok: false, errors: ['O arquivo não contém um objeto JSON válido.'], warnings, data: null, preview: null };
+    return {
+      ok: false,
+      errors: ['O arquivo não contém um objeto JSON válido.'],
+      warnings,
+      data: null,
+      preview: { importCounts: { create: 0, ignore: 0, reject: 1 } },
+    };
   }
 
   const version = toNumber(payload.format_version);
@@ -180,12 +194,30 @@ export const validateBackup = (payload) => {
 
   if (!isPlainObject(payload.data)) {
     errors.push('Campo obrigatório ausente ou inválido: data.');
-    return { ok: false, errors, warnings, data: null, preview: null };
+    return {
+      ok: false,
+      errors,
+      warnings,
+      data: null,
+      preview: { importCounts: { create: 0, ignore: 0, reject: 1 } },
+    };
   }
+
+  const totalRows = countRows(payload.data);
+  const ignoredRows = Object.entries(payload.data).reduce((total, [key, rows]) => {
+    if (RESTORE_IGNORED_ENTITIES.includes(key)) {
+      return total + (Array.isArray(rows) ? rows.length : rows === undefined ? 0 : 1);
+    }
+    if (ENTITY_SCHEMAS[key]) return total;
+    return total + (Array.isArray(rows) ? rows.length : 1);
+  }, 0);
 
   Object.keys(payload.data).forEach((key) => {
     if (!ENTITY_SCHEMAS[key]) warnings.push(`Coleção desconhecida ignorada: ${key}.`);
   });
+  if ((payload.data.Preferences?.length || 0) > 0) {
+    warnings.push('Preferências não são restauradas; as configurações atuais da conta serão mantidas.');
+  }
 
   const ids = new Map();
   Object.entries(ENTITY_SCHEMAS).forEach(([entity, schema]) => {
@@ -324,6 +356,13 @@ export const validateBackup = (payload) => {
     date: tx.settlement_date || tx.due_date || tx.competence_date || null,
   }));
   preview.months = Array.from(new Set(transactions.map((tx) => monthKey(tx.settlement_date || tx.due_date)).filter(Boolean))).sort();
+  const createCount = Object.entries(preview.counts).reduce(
+    (total, [entity, count]) => total + (RESTORE_IGNORED_ENTITIES.includes(entity) ? 0 : count),
+    0,
+  );
+  preview.importCounts = errors.length
+    ? { create: 0, ignore: 0, reject: totalRows || 1 }
+    : { create: createCount, ignore: ignoredRows, reject: 0 };
 
   return {
     ok: errors.length === 0,
@@ -343,7 +382,47 @@ export const parseBackupText = (text) => {
   try {
     return validateBackup(JSON.parse(text));
   } catch (error) {
-    return { ok: false, errors: [`O arquivo não é um JSON válido: ${error.message}`], warnings: [], data: null, preview: null };
+    return {
+      ok: false,
+      errors: [`O arquivo não é um JSON válido: ${error.message}`],
+      warnings: [],
+      data: null,
+      preview: { importCounts: { create: 0, ignore: 0, reject: 1 } },
+    };
+  }
+};
+
+/** Revalida o texto no momento da confirmação e nunca chama o gravador se falhar. */
+export const restoreBackupText = async (text, replace) => {
+  const result = parseBackupText(text);
+  if (!result.ok) return result;
+  if (typeof replace !== 'function') throw new TypeError('A função de substituição do backup é obrigatória.');
+  await replace(result.data);
+  return result;
+};
+
+/** Substitui coleções existentes e reaplica o snapshot se a gravação falhar. */
+export const replaceBackupData = async (data, { snapshot, clear, write, onProgress } = {}) => {
+  if (typeof clear !== 'function' || typeof write !== 'function') {
+    throw new TypeError('As funções de limpeza e gravação do backup são obrigatórias.');
+  }
+  if (!isPlainObject(data) || !isPlainObject(snapshot)) {
+    throw new TypeError('Dados validados e cópia de segurança são obrigatórios para substituir os registros.');
+  }
+  try {
+    await clear();
+    onProgress?.('Gravando novos registros');
+    await write(data);
+    return { ok: true };
+  } catch (error) {
+    try {
+      await clear();
+      await write(snapshot);
+    } catch (rollbackError) {
+      const rollbackMessage = rollbackError instanceof Error ? rollbackError.message : String(rollbackError);
+      throw new Error(`A importação falhou (${error.message}) e a restauração automática também não foi concluída (${rollbackMessage}).`);
+    }
+    throw new Error(`A importação falhou e os dados anteriores foram restaurados automaticamente. Detalhe: ${error.message}`);
   }
 };
 
@@ -367,7 +446,7 @@ export const buildBackupPayload = (collections = {}, meta = {}) => {
   });
   return {
     app: APP_ID,
-    product: 'Data Fintech',
+    product: PRODUCT_NAME,
     format_version: FORMAT_VERSION,
     generated_at: meta.generated_at || new Date().toISOString(),
     generated_by: meta.generated_by || null,

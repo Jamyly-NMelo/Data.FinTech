@@ -1,5 +1,26 @@
 User-agent: *
 Allow: /
-Disallow: /api/
+Allow: /privacidade
+Allow: /termos
 
-Sitemap: https://www.datafintech.com.br/sitemap.xml
+Disallow: /api/
+Disallow: /$
+Disallow: /login
+Disallow: /register
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /consolidado
+Disallow: /lancamentos
+Disallow: /contas
+Disallow: /importar-fatura
+Disallow: /orcamento
+Disallow: /metas
+Disallow: /dividas
+Disallow: /investimentos
+Disallow: /dre
+Disallow: /precificacao
+Disallow: /simulador-tributario
+Disallow: /backup
+Disallow: /configuracoes
+
+Sitemap: __SITE_URL__/sitemap.xml

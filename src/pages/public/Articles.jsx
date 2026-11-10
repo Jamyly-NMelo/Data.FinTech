@@ -2,6 +2,7 @@ import React from 'react';
 import ArticleCard from '@/components/public/ArticleCard';
 import { ARTICLES } from '@/content/articles';
 import { usePageMeta } from '@/lib/seo';
+import { SITE_CONFIG } from '@/config/site';
 
 export default function Articles() {
   usePageMeta({
@@ -14,7 +15,7 @@ export default function Articles() {
   return (
     <div>
       <header className="max-w-2xl">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary/80">Conteúdos Data Fin</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary/80">Conteúdos {SITE_CONFIG.name}</p>
         <h1 className="mt-3 font-heading text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl">
           Finanças explicadas com contas, não com frases prontas
         </h1>

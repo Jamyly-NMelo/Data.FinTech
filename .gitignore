@@ -39,5 +39,5 @@ dist-ssr/
 *.njsproj
 *.sln
 
-# Local link to a Base44 app, written by `base44 link`
+# Local Base44 app link
 base44/.app.jsonc

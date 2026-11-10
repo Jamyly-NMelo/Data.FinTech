@@ -1,66 +1,18 @@
-{
- "cells": [
-  {
-   "cell_type": "code",
-   "execution_count": null,
-   "id": "8b2e5f42",
-   "metadata": {},
-   "outputs": [],
-   "source": [
-    "<!doctype html>\n",
-    "<html lang=\"pt-BR\">\n",
-    "  <head>\n",
-    "    <meta charset=\"UTF-8\" />\n",
-    "    <link rel=\"icon\" type=\"image/svg+xml\" href=\"/icon.svg\" />\n",
-    "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, viewport-fit=cover\" />\n",
-    "    <meta name=\"theme-color\" content=\"#0F2C59\" />\n",
-    "    <meta name=\"description\" content=\"Data Fintech — Finanças simples para quem quer focar no que importa. Gestão financeira pessoal, empresarial e de investimentos em uma única visão.\" />\n",
-    "    <meta name=\"apple-mobile-web-app-capable\" content=\"yes\" />\n",
-    "    <meta name=\"apple-mobile-web-app-title\" content=\"Data Fin\" />\n",
-    "    <meta name=\"apple-mobile-web-app-status-bar-style\" content=\"black-translucent\" />\n",
-    "    <meta property=\"og:title\" content=\"Data Fintech — Finanças simples\" />\n",
-    "    <meta property=\"og:description\" content=\"Indicadores claros, decisões melhores: finanças pessoais, empresariais e investimentos em um só lugar.\" />\n",
-    "    <meta property=\"og:type\" content=\"website\" />\n",
-    "    <link rel=\"manifest\" href=\"/manifest.json\" />\n",
-    "    <link rel=\"apple-touch-icon\" href=\"/icon.svg\" />\n",
-    "    <link rel=\"preconnect\" href=\"https://fonts.googleapis.com\" />\n",
-    "    <link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin />\n",
-    "    <link\n",
-    "      href=\"https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap\"\n",
-    "      rel=\"stylesheet\"\n",
-    "    />\n",
-    "    <title>Data Fintech — Finanças simples para quem quer focar no que importa</title>\n",
-    "    <!--\n",
-    "      Google AdSense: carregado apenas nas páginas editoriais, pelo módulo\n",
-    "      src/lib/adsense.js (ver AdSenseGate). Não inclua o script aqui: ele seria\n",
-    "      executado em todas as rotas, inclusive login, painel, configurações e 404.\n",
-    "    -->\n",
-    "    <script>\n",
-    "      // Evita o \"flash\" de tema claro antes do React montar.\n",
-    "      (function () {\n",
-    "        try {\n",
-    "          var cached = JSON.parse(localStorage.getItem('datafin.preferences') || '{}');\n",
-    "          var theme = cached.theme || 'system';\n",
-    "          var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;\n",
-    "          var isDark = theme === 'dark' || (theme === 'system' && prefersDark);\n",
-    "          if (isDark) document.documentElement.classList.add('dark');\n",
-    "        } catch (error) {}\n",
-    "      })();\n",
-    "    </script>\n",
-    "  </head>\n",
-    "  <body>\n",
-    "    <div id=\"root\"></div>\n",
-    "    <script type=\"module\" src=\"/src/main.jsx\"></script>\n",
-    "  </body>\n",
-    "</html>\n"
-   ]
-  }
- ],
- "metadata": {
-  "language_info": {
-   "name": "python"
-  }
- },
- "nbformat": 4,
- "nbformat_minor": 5
-}
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="description" content="DataFintech — Finanças simples para quem quer focar no que importa." />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="__SITE_NAME__" />
+    <meta property="og:url" content="__SITE_URL__/" />
+    <link rel="canonical" href="__SITE_URL__/" />
+    <title>__SITE_NAME__</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

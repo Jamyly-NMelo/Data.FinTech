@@ -1,15 +1,15 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import { get, post, setAccessToken } from "@/services/api";
+import { post } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { UserPlus, Mail, Lock, Loader2 } from "lucide-react";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import AuthLayout from "@/components/AuthLayout";
-import GoogleIcon from "@/components/GoogleIcon";
 import { toast } from "@/components/ui/use-toast";
 import { safeReturnTo } from "@/lib/authReturnTo";
+import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
 
 export default function Register() {
   const [email, setEmail] = useState("");
@@ -43,9 +43,7 @@ export default function Register() {
     setLoading(true);
     try {
       const result = await post('auth.verifyOtp', { email, otp_code: otpCode });
-      if (result?.access_token) {
-        setAccessToken(result.access_token);
-      }
+      if (!result?.user) throw new Error('Não foi possível confirmar a sessão da conta.');
       window.location.href = safeReturnTo();
     } catch (err) {
       setError(err.message || "Invalid verification code");
@@ -64,18 +62,6 @@ export default function Register() {
       });
     } catch (err) {
       setError(err.message || "Failed to resend code");
-    }
-  };
-
-  const handleGoogle = async () => {
-    setError("");
-    try {
-      const result = await get('auth.googleLoginUrl', { return_to: safeReturnTo() });
-      const url = typeof result === 'string' ? result : result?.url;
-      if (!url) throw new Error('Google login is not configured.');
-      window.location.assign(url);
-    } catch (err) {
-      setError(err.message || 'Google login failed');
     }
   };
 
@@ -150,24 +136,6 @@ export default function Register() {
         </>
       }
     >
-      <Button
-        variant="outline"
-        className="w-full h-12 text-sm font-medium mb-6"
-        onClick={handleGoogle}
-      >
-        <GoogleIcon className="w-5 h-5 mr-2" />
-        Continue with Google
-      </Button>
-
-      <div className="relative mb-6">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-border" />
-        </div>
-        <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-card px-3 text-muted-foreground">or</span>
-        </div>
-      </div>
-
       {error && (
         <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
           {error}
@@ -235,6 +203,23 @@ export default function Register() {
           )}
         </Button>
       </form>
+      <div className="my-5 flex items-center gap-3 text-xs text-muted-foreground">
+        <span className="h-px flex-1 bg-border" />
+        ou
+        <span className="h-px flex-1 bg-border" />
+      </div>
+      <GoogleSignInButton returnTo={safeReturnTo()} onError={setError} />
+      <p className="mt-4 text-center text-xs leading-5 text-muted-foreground">
+        Ao continuar, você concorda com os{' '}
+        <Link to="/termos" className="underline underline-offset-4 hover:text-primary">
+          Termos de Uso
+        </Link>{' '}
+        e a{' '}
+        <Link to="/privacidade" className="underline underline-offset-4 hover:text-primary">
+          Política de Privacidade
+        </Link>
+        .
+      </p>
     </AuthLayout>
   );
 }

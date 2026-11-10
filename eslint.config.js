@@ -1,80 +1,60 @@
-{
- "cells": [
+import globals from "globals";
+import pluginJs from "@eslint/js";
+import pluginReact from "eslint-plugin-react";
+import pluginReactHooks from "eslint-plugin-react-hooks";
+import pluginUnusedImports from "eslint-plugin-unused-imports";
+
+export default [
   {
-   "cell_type": "code",
-   "execution_count": null,
-   "id": "5fd033c2",
-   "metadata": {},
-   "outputs": [],
-   "source": [
-    "import globals from \"globals\";\n",
-    "import pluginJs from \"@eslint/js\";\n",
-    "import pluginReact from \"eslint-plugin-react\";\n",
-    "import pluginReactHooks from \"eslint-plugin-react-hooks\";\n",
-    "import pluginUnusedImports from \"eslint-plugin-unused-imports\";\n",
-    "\n",
-    "export default [\n",
-    "  {\n",
-    "    files: [\n",
-    "      \"src/components/**/*.{js,mjs,cjs,jsx}\",\n",
-    "      \"src/pages/**/*.{js,mjs,cjs,jsx}\",\n",
-    "      \"src/Layout.jsx\",\n",
-    "    ],\n",
-    "    ignores: [\"src/lib/**/*\", \"src/components/ui/**/*\"],\n",
-    "    ...pluginJs.configs.recommended,\n",
-    "    ...pluginReact.configs.flat.recommended,\n",
-    "    languageOptions: {\n",
-    "      globals: globals.browser,\n",
-    "      parserOptions: {\n",
-    "        ecmaVersion: 2022,\n",
-    "        sourceType: \"module\",\n",
-    "        ecmaFeatures: {\n",
-    "          jsx: true,\n",
-    "        },\n",
-    "      },\n",
-    "    },\n",
-    "    settings: {\n",
-    "      react: {\n",
-    "        version: \"detect\",\n",
-    "      },\n",
-    "    },\n",
-    "    plugins: {\n",
-    "      react: pluginReact,\n",
-    "      \"react-hooks\": pluginReactHooks,\n",
-    "      \"unused-imports\": pluginUnusedImports,\n",
-    "    },\n",
-    "    rules: {\n",
-    "      \"no-unused-vars\": \"off\",\n",
-    "      \"react/jsx-uses-vars\": \"error\",\n",
-    "      \"react/jsx-uses-react\": \"error\",\n",
-    "      \"unused-imports/no-unused-imports\": \"error\",\n",
-    "      \"unused-imports/no-unused-vars\": [\n",
-    "        \"warn\",\n",
-    "        {\n",
-    "          vars: \"all\",\n",
-    "          varsIgnorePattern: \"^_\",\n",
-    "          args: \"after-used\",\n",
-    "          argsIgnorePattern: \"^_\",\n",
-    "        },\n",
-    "      ],\n",
-    "      \"react/prop-types\": \"off\",\n",
-    "      \"react/react-in-jsx-scope\": \"off\",\n",
-    "      \"react/no-unknown-property\": [\n",
-    "        \"error\",\n",
-    "        { ignore: [\"cmdk-input-wrapper\", \"toast-close\"] },\n",
-    "      ],\n",
-    "      \"react-hooks/rules-of-hooks\": \"error\",\n",
-    "    },\n",
-    "  },\n",
-    "];\n"
-   ]
-  }
- ],
- "metadata": {
-  "language_info": {
-   "name": "python"
-  }
- },
- "nbformat": 4,
- "nbformat_minor": 5
-}
+    files: [
+      "src/components/**/*.{js,mjs,cjs,jsx}",
+      "src/pages/**/*.{js,mjs,cjs,jsx}",
+      "src/Layout.jsx",
+    ],
+    ignores: ["src/lib/**/*", "src/components/ui/**/*"],
+    ...pluginJs.configs.recommended,
+    ...pluginReact.configs.flat.recommended,
+    languageOptions: {
+      globals: globals.browser,
+      parserOptions: {
+        ecmaVersion: 2022,
+        sourceType: "module",
+        ecmaFeatures: {
+          jsx: true,
+        },
+      },
+    },
+    settings: {
+      react: {
+        version: "detect",
+      },
+    },
+    plugins: {
+      react: pluginReact,
+      "react-hooks": pluginReactHooks,
+      "unused-imports": pluginUnusedImports,
+    },
+    rules: {
+      "no-unused-vars": "off",
+      "react/jsx-uses-vars": "error",
+      "react/jsx-uses-react": "error",
+      "unused-imports/no-unused-imports": "error",
+      "unused-imports/no-unused-vars": [
+        "warn",
+        {
+          vars: "all",
+          varsIgnorePattern: "^_",
+          args: "after-used",
+          argsIgnorePattern: "^_",
+        },
+      ],
+      "react/prop-types": "off",
+      "react/react-in-jsx-scope": "off",
+      "react/no-unknown-property": [
+        "error",
+        { ignore: ["cmdk-input-wrapper", "toast-close"] },
+      ],
+      "react-hooks/rules-of-hooks": "error",
+    },
+  },
+];

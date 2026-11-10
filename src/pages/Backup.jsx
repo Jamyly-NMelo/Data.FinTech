@@ -9,7 +9,14 @@ import { useWorkspace } from '@/lib/workspace';
 import { useAuth } from '@/lib/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { exportWorkspaceData, replaceWorkspaceData } from '@/lib/data';
-import { BACKUP_ENTITIES, FORMAT_VERSION, buildBackupPayload, parseBackupText } from '@/lib/finance/backup';
+import { post } from '@/services/api';
+import {
+  BACKUP_ENTITIES,
+  FORMAT_VERSION,
+  buildBackupPayload,
+  parseBackupText,
+  restoreBackupText,
+} from '@/lib/finance/backup';
 import { formatDate, todayISO } from '@/lib/format';
 import { AlertTriangle, Download, FileJson, ShieldCheck, Upload } from 'lucide-react';
 
@@ -26,6 +33,7 @@ const ENTITY_LABELS = {
   TaxScenario: 'Cenários tributários',
   Preferences: 'Preferências',
 };
+const MAX_BACKUP_BYTES = 10 * 1024 * 1024;
 
 export default function Backup() {
   const { refresh } = useWorkspace();
@@ -34,6 +42,7 @@ export default function Backup() {
 
   const [exporting, setExporting] = useState(false);
   const [fileName, setFileName] = useState('');
+  const [fileText, setFileText] = useState('');
   const [result, setResult] = useState(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [restoring, setRestoring] = useState(false);
@@ -46,6 +55,7 @@ export default function Backup() {
     try {
       const collections = await exportWorkspaceData();
       const payload = buildBackupPayload(collections, { generated_by: user?.email || null });
+      await post('audit.record', { event: 'backup.export' });
       const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -68,26 +78,84 @@ export default function Backup() {
     const file = event.target.files?.[0];
     if (!file) return;
     setFileName(file.name);
-    const text = await file.text();
-    const validation = parseBackupText(text);
-    setResult(validation);
-    if (!validation.ok) {
+    setFileText('');
+    setResult(null);
+    const rejectFile = (message) => {
+      setResult({
+        ok: false,
+        errors: [message],
+        warnings: [],
+        preview: { importCounts: { create: 0, ignore: 0, reject: 1 } },
+      });
       toast({
         title: 'Arquivo recusado',
-        description: 'Nenhum dado foi alterado. Veja os problemas listados abaixo.',
+        description: message,
         variant: 'destructive',
       });
+    };
+    if (file.size > MAX_BACKUP_BYTES) {
+      rejectFile('O backup excede o limite de 10 MB. Nenhum dado foi alterado.');
+      event.target.value = '';
+      return;
+    }
+    if (!file.name.toLowerCase().endsWith('.json') && file.type !== 'application/json') {
+      rejectFile('Selecione um arquivo JSON de backup. Nenhum dado foi alterado.');
+      event.target.value = '';
+      return;
+    }
+    try {
+      const text = await file.text();
+      const validation = parseBackupText(text);
+      setFileText(text);
+      setResult(validation);
+      if (!validation.ok) {
+        toast({
+          title: 'Arquivo recusado',
+          description: 'Nenhum dado foi alterado. Veja os problemas listados abaixo.',
+          variant: 'destructive',
+        });
+      }
+    } catch {
+      rejectFile('Não foi possível ler o arquivo selecionado. Nenhum dado foi alterado.');
     }
   };
 
   const handleRestore = async () => {
+    if (!result?.ok || !fileText) {
+      toast({
+        title: 'Arquivo não validado',
+        description: 'Selecione e valide um backup antes de confirmar a restauração.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const validation = parseBackupText(fileText);
+    if (!validation.ok) {
+      setResult(validation);
+      setConfirmOpen(false);
+      toast({
+        title: 'Arquivo recusado',
+        description: 'A validação falhou. Nenhum dado foi alterado.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setRestoring(true);
     try {
-      await replaceWorkspaceData(result.data, { onProgress: setProgress });
+      await post('audit.record', { event: 'backup.restore.start' });
+      await restoreBackupText(fileText, (data) => replaceWorkspaceData(data, { onProgress: setProgress }));
+      await post('audit.record', { event: 'backup.restore' });
       await refresh();
       setResult(null);
       setFileName('');
-      toast({ title: 'Importação concluída', description: 'Os dados anteriores foram substituídos pelos do arquivo.' });
+      setFileText('');
+      const { create, ignore, reject } = validation.preview.importCounts;
+      toast({
+        title: 'Importação concluída',
+        description: `${create} registro(s) criado(s), ${ignore} ignorado(s) e ${reject} rejeitado(s). Os dados anteriores foram substituídos.`,
+      });
     } catch (error) {
       await refresh();
       toast({ title: 'Importação não concluída', description: error.message, variant: 'destructive' });
@@ -161,6 +229,14 @@ export default function Backup() {
                     <p className="mt-2">… e mais {result.errors.length - 30} problema(s).</p>
                   ) : null}
                 </div>
+              ) : null}
+
+              {result.preview?.importCounts ? (
+                <p className="rounded-xl border border-border/70 bg-muted/30 p-3 text-xs text-muted-foreground" role="status">
+                  Previsão: {result.preview.importCounts.create} registro(s) serão criados,{' '}
+                  {result.preview.importCounts.ignore} ignorados e {result.preview.importCounts.reject} registro(s)/arquivo rejeitado(s).
+                  {result.ok ? ' Coleções desconhecidas são ignoradas; qualquer erro rejeita o arquivo inteiro.' : ' Nenhum registro será gravado.'}
+                </p>
               ) : null}
 
               {result.warnings.length ? (
@@ -240,6 +316,7 @@ export default function Backup() {
                       onClick={() => {
                         setResult(null);
                         setFileName('');
+                        setFileText('');
                       }}
                     >
                       Descartar arquivo
@@ -257,7 +334,7 @@ export default function Backup() {
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
         title="Substituir seus dados pelo backup?"
-        description="Os registros atuais serão removidos e os do arquivo passarão a valer. Uma cópia de segurança é guardada automaticamente e reaplicada caso algo falhe."
+        description={`Os registros atuais serão removidos e os do arquivo passarão a valer. ${result?.preview?.importCounts?.create || 0} registro(s) serão criados, ${result?.preview?.importCounts?.ignore || 0} ignorados e ${result?.preview?.importCounts?.reject || 0} registro(s)/arquivo rejeitado(s). Uma cópia de segurança é guardada automaticamente e reaplicada caso algo falhe.`}
         confirmLabel={restoring ? 'Importando…' : 'Substituir dados'}
         destructive
         onConfirm={handleRestore}
