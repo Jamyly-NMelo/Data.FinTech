@@ -1,11 +1,12 @@
 const API_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 const TOKEN_STORAGE_KEY = 'datafin.access_token';
+const REQUEST_TIMEOUT_MS = 30000;
 
 const clearLegacyToken = () => {
   try {
     if (typeof localStorage !== 'undefined') localStorage.removeItem(TOKEN_STORAGE_KEY);
   } catch {
-    // O gateway não depende de armazenamento local para autenticar.
+    // The gateway authenticates with an HttpOnly cookie, not local storage.
   }
 };
 
@@ -13,7 +14,6 @@ clearLegacyToken();
 
 export const getAccessToken = () => null;
 export const setAccessToken = clearLegacyToken;
-
 export const clearAccessToken = clearLegacyToken;
 
 const queryValue = (value) => (typeof value === 'string' ? value : JSON.stringify(value));
@@ -37,33 +37,59 @@ const apiUrl = () => {
   return url;
 };
 
+const fetchJson = async (input, init) => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const response = await fetch(input, { ...init, signal: controller.signal });
+    const text = await response.text();
+    try {
+      return JSON.parse(text);
+    } catch {
+      throw new Error('O gateway respondeu em formato inválido. Verifique a implantação do serviço.');
+    }
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      throw new Error('O servidor demorou demais para responder. Tente novamente.');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+};
+
 export const api = {
   async obterDados(acao = 'listar', parametros = {}) {
     try {
-      if (!API_URL) throw new Error('VITE_API_BASE_URL não está definida.');
       const url = apiUrl();
       url.searchParams.set('action', acao);
       Object.entries(parametros).forEach(([chave, valor]) => {
-        if (valor !== undefined && valor !== null) url.searchParams.set(chave, queryValue(valor));
+        if (
+          valor !== undefined &&
+          valor !== null &&
+          chave !== 'access_token' &&
+          chave !== 'gateway_secret'
+        ) {
+          url.searchParams.set(chave, queryValue(valor));
+        }
       });
-      const resposta = await fetch(url, { credentials: 'same-origin' });
-      return await resposta.json();
-    } catch (erro) {
-      console.error('Erro ao buscar dados do Apps Script:', erro);
-      return { status: 'erro', mensagem: erro.message };
+      return await fetchJson(url, { credentials: 'same-origin' });
+    } catch (error) {
+      console.error('Erro ao consultar o gateway:', error.message);
+      return { status: 'erro', mensagem: error.message };
     }
   },
 
   async salvarDados(dados) {
     try {
-      if (!API_URL) throw new Error('VITE_API_BASE_URL não está definida.');
       if (!getCsrfToken()) {
         const bootstrap = await api.obterDados('auth.publicSettings');
         if (bootstrap?.status === 'erro' || !getCsrfToken()) {
           throw new Error(bootstrap?.mensagem || 'Não foi possível iniciar a proteção CSRF.');
         }
       }
-      const resposta = await fetch(apiUrl(), {
+
+      return await fetchJson(apiUrl(), {
         method: 'POST',
         headers: {
           'Content-Type': 'text/plain;charset=utf-8',
@@ -72,17 +98,16 @@ export const api = {
         body: JSON.stringify(dados),
         credentials: 'same-origin',
       });
-      return await resposta.json();
-    } catch (erro) {
-      console.error('Erro ao enviar dados para o Apps Script:', erro);
-      return { status: 'erro', mensagem: erro.message };
+    } catch (error) {
+      console.error('Erro ao enviar dados ao gateway:', error.message);
+      return { status: 'erro', mensagem: error.message };
     }
   },
 };
 
 const unwrapResult = (result, action) => {
   if (result?.status === 'erro' || result?.error) {
-    const message = result.mensagem || result.error?.message || result.error || 'Falha ao comunicar com o Apps Script.';
+    const message = result.mensagem || result.error?.message || result.error || 'Falha ao comunicar com o gateway.';
     const error = new Error(message);
     error.status = result.httpStatus || result.statusCode;
     error.data = result;
