@@ -16,6 +16,7 @@ import About from '@/pages/public/About';
 import Contact from '@/pages/public/Contact';
 import Privacy from '@/pages/public/Privacy';
 import Terms from '@/pages/public/Terms';
+import OAuthConsent from '@/pages/OAuthConsent';
 
 // Add page imports here
 import Login from '@/pages/Login';
@@ -66,6 +67,7 @@ const AuthenticatedApp = () => {
       <Route path="/register" element={<Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/oauth/consent" element={<OAuthConsent />} />
 
       {/* Área pública: conteúdo editorial e páginas institucionais */}
       <Route element={<PublicLayout />}>

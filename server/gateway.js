@@ -2,12 +2,14 @@ import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { createReadStream, existsSync } from 'node:fs';
 import { extname, resolve, sep } from 'node:path';
 import { pipeline } from 'node:stream/promises';
+import { extractInvoicePdf, MAX_PDF_BYTES } from './invoice-parser.js';
 
 const API_PATH = '/api';
 const SESSION_COOKIE = '__Host-datafin.session';
 const CSRF_COOKIE = '__Host-datafin.csrf';
 const SESSION_MAX_AGE = 30 * 24 * 60 * 60;
 const MAX_BODY_BYTES = 1024 * 1024;
+const MAX_PDF_BODY_BYTES = MAX_PDF_BYTES;
 const SESSION_ACTIONS = new Set(['auth.login', 'auth.verifyOtp', 'auth.googleLogin']);
 const SESSION_RENEW_ACTION = 'auth.renew';
 const MUTATION_METHOD = 'POST';
@@ -101,6 +103,19 @@ const readJsonBody = async (request) => {
   }
 };
 
+const readPdfBody = async (request) => {
+  let size = 0;
+  const chunks = [];
+  for await (const chunk of request) {
+    size += chunk.length;
+    if (size > MAX_PDF_BODY_BYTES) {
+      throw Object.assign(new Error('O PDF excede o limite de 10 MiB.'), { status: 413 });
+    }
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks);
+};
+
 const publicIdentity = (payload) => {
   const issuer = payload?.iss;
   if (!['accounts.google.com', 'https://accounts.google.com'].includes(issuer)) {
@@ -171,6 +186,7 @@ export function createGateway({
   allowedOrigins = [],
   verifyGoogleToken,
   fetchImpl = fetch,
+  parsePdf = extractInvoicePdf,
   distDirectory = resolve(process.cwd(), 'dist'),
 }) {
   if (!appScriptUrl || !gatewaySecret || !googleClientId || !verifyGoogleToken) {
@@ -200,9 +216,25 @@ export function createGateway({
 
   return async (request, response) => {
     try {
-      if (request.url.startsWith(`${API_PATH}?`) || request.url === API_PATH) {
+      if (request.url === '/healthz' && request.method === 'GET') {
+        sendJson(response, 200, { status: 'sucesso', data: { healthy: true } });
+        return;
+      }
+
+      if (
+        request.url === API_PATH ||
+        request.url.startsWith(`${API_PATH}?`) ||
+        request.url.startsWith(`${API_PATH}/`)
+      ) {
         if (request.method !== 'GET' && request.method !== MUTATION_METHOD) {
           sendJson(response, 405, { status: 'erro', mensagem: 'Método não permitido.' }, { Allow: 'GET, POST' });
+          return;
+        }
+
+        const requestUrl = new URL(request.url, 'http://localhost');
+        const isPdfUpload = requestUrl.pathname === `${API_PATH}/invoices/parse`;
+        if (requestUrl.pathname !== API_PATH && !isPdfUpload) {
+          sendJson(response, 404, { status: 'erro', mensagem: 'Rota da API não encontrada.', httpStatus: 404 });
           return;
         }
 
@@ -214,12 +246,9 @@ export function createGateway({
         const sendApiJson = (status, body, headers = {}) =>
           sendJson(response, status, body, mergeHeaders(csrfHeaders, headers));
 
-        const requestUrl = new URL(request.url, 'http://localhost');
         const query = Object.fromEntries(requestUrl.searchParams.entries());
         delete query.access_token;
         delete query.gateway_secret;
-        let payload = request.method === MUTATION_METHOD ? await readJsonBody(request) : {};
-        const action = String(payload.action || query.action || '');
 
         if (request.method === MUTATION_METHOD) {
           const origin = request.headers.origin;
@@ -233,8 +262,38 @@ export function createGateway({
           }
         }
 
+        if (isPdfUpload && request.method !== MUTATION_METHOD) {
+          sendApiJson(405, { status: 'erro', mensagem: 'Use POST para enviar um PDF.', httpStatus: 405 });
+          return;
+        }
+
+        if (isPdfUpload && !String(request.headers['content-type'] || '').toLowerCase().startsWith('application/pdf')) {
+          sendApiJson(415, { status: 'erro', mensagem: 'Envie um arquivo PDF.', httpStatus: 415 });
+          return;
+        }
+
+        let payload = request.method === MUTATION_METHOD
+          ? isPdfUpload ? await readPdfBody(request) : await readJsonBody(request)
+          : {};
+        const action = String(payload?.action || query.action || '');
         const sessionToken = readCookie(requestCookies, SESSION_COOKIE);
         const setCookie = (token) => ({ 'Set-Cookie': cookieHeader(token) });
+
+        if (isPdfUpload) {
+          if (!sessionToken) {
+            sendApiJson(401, { status: 'erro', mensagem: 'Autenticação necessária.', httpStatus: 401 }, setCookie(null));
+            return;
+          }
+          const identity = await sendUpstream('GET', { action: 'auth.me', access_token: sessionToken }, {});
+          if (identity?.status !== 'sucesso') {
+            const status = Number(identity?.httpStatus) || 401;
+            sendApiJson(status, identity || { status: 'erro', mensagem: 'Autenticação necessária.', httpStatus: status }, setCookie(null));
+            return;
+          }
+          const extracted = await parsePdf(payload);
+          sendApiJson(200, { status: 'sucesso', data: extracted });
+          return;
+        }
 
         if (action === 'auth.googleLogin') {
           const credential = payload.credential;

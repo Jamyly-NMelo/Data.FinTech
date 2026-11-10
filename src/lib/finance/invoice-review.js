@@ -146,6 +146,19 @@ export const buildReview = ({ document, items = [], duplicates = null, accountId
   if (creatable.some((item) => !(item.date || document?.periodTo || document?.dueDate))) {
     errors.push('Há lançamentos sem data e sem vencimento de referência para o lançamento.');
   }
+  if (creatable.some((item) => {
+    const hasCurrent = item.installmentCurrent !== null && item.installmentCurrent !== undefined;
+    const hasTotal = item.installmentTotal !== null && item.installmentTotal !== undefined;
+    if (!hasCurrent && !hasTotal) return false;
+    return !hasCurrent || !hasTotal ||
+      !Number.isInteger(Number(item.installmentCurrent)) ||
+      !Number.isInteger(Number(item.installmentTotal)) ||
+      Number(item.installmentTotal) <= 1 ||
+      Number(item.installmentCurrent) < 1 ||
+      Number(item.installmentCurrent) > Number(item.installmentTotal);
+  })) {
+    errors.push('Revise a parcela atual e o total de parcelas dos lançamentos selecionados.');
+  }
 
   const byType = Object.values(ITEM_TYPE).reduce((acc, type) => {
     const list = creatable.filter((item) => item.type === type);

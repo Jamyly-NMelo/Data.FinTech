@@ -97,6 +97,91 @@ test('referências de registros financeiros rejeitam IDs pertencentes a outro us
   );
 });
 
+test('importação de fatura vincula lançamentos ao cartão próprio e registra ambiente validado', () => {
+  const context = createScriptContext();
+  const user = { id: 'user-a', email: 'a@example.com', role: 'user' };
+  const writes = [];
+  context.requireUser_ = () => user;
+  context.loadOwned_ = (entity) => ({
+    list: entity === 'Account'
+      ? [{ rec: { id: 'card-a', type: 'credit_card', environment: 'pj' } }]
+      : [],
+  });
+  context.buildRecord_ = (entity, values, owner) => ({
+    ...values,
+    id: `${entity}-${writes.length}`,
+    created_by_id: owner.id,
+  });
+  context.readTable_ = (entity) => ({ entity });
+  context.colsOf_ = () => [];
+  context.appendRows_ = (table, rows) => writes.push({ entity: table.entity, rows });
+  context.toRecord_ = (_entity, record) => record;
+
+  const result = context.recImportInvoice_({
+    invoice: { account_id: 'card-a', environment: 'pj', fingerprint: 'source-fingerprint' },
+    transactions: [{
+      account_id: 'card-a',
+      card_invoice_account_id: 'card-a',
+      environment: 'pj',
+      kind: 'expense',
+      amount: 25,
+    }],
+  });
+
+  assert.equal(writes.length, 2);
+  assert.equal(writes[0].entity, 'Transaction');
+  assert.equal(writes[1].entity, 'CardInvoice');
+  assert.equal(result.invoice.environment, 'pj');
+  assert.deepEqual(result.invoice.transaction_ids, [result.transactions[0].id]);
+  assert.equal(result.transactions[0].created_by_id, user.id);
+});
+
+test('importação rejeita cartão de outro usuário, ambiente incompatível e fatura repetida', () => {
+  const context = createScriptContext();
+  const user = { id: 'user-a', role: 'user' };
+  context.requireUser_ = () => user;
+  context.loadOwned_ = (entity) => ({
+    list: entity === 'Account'
+      ? [{ rec: { id: 'card-a', type: 'credit_card', environment: 'pf' } }]
+      : entity === 'CardInvoice'
+        ? [{ rec: { id: 'invoice-a', account_id: 'card-a', fingerprint: 'duplicate', status: 'confirmado' } }]
+        : [],
+  });
+  context.buildRecord_ = (entity, values) => ({ ...values, id: entity });
+  context.readTable_ = (entity) => ({ entity });
+  context.colsOf_ = () => [];
+  context.appendRows_ = () => { throw new Error('não deve gravar'); };
+
+  const transactions = [{
+    account_id: 'card-a',
+    card_invoice_account_id: 'card-a',
+    environment: 'pf',
+    kind: 'expense',
+    amount: 10,
+  }];
+  assert.throws(
+    () => context.recImportInvoice_({
+      invoice: { account_id: 'card-a', environment: 'pj', fingerprint: 'new' },
+      transactions,
+    }),
+    /ambiente da fatura não corresponde/,
+  );
+  assert.throws(
+    () => context.recImportInvoice_({
+      invoice: { account_id: 'card-other', environment: 'pf', fingerprint: 'new' },
+      transactions,
+    }),
+    /Cartão inválido/,
+  );
+  assert.throws(
+    () => context.recImportInvoice_({
+      invoice: { account_id: 'card-a', environment: 'pf', fingerprint: 'duplicate' },
+      transactions,
+    }),
+    /já foi importada/,
+  );
+});
+
 test('tentativas de atualizar ou excluir o registro de outro usuário não alteram a planilha', () => {
   const context = createScriptContext();
   const writes = [];

@@ -11,7 +11,7 @@ const SESSION_TOKEN = 'a'.repeat(64);
 const CSRF_TOKEN = 'csrf-token-with-sufficient-length';
 const CSRF_COOKIE = '__Host-datafin.csrf';
 
-const createHarness = async ({ fetchImpl, verifyGoogleToken } = {}) => {
+const createHarness = async ({ fetchImpl, verifyGoogleToken, parsePdf } = {}) => {
   const upstreamRequests = [];
   const upstream = fetchImpl || (async (url, options) => {
     upstreamRequests.push({ url: new URL(url), options });
@@ -41,6 +41,7 @@ const createHarness = async ({ fetchImpl, verifyGoogleToken } = {}) => {
       picture: 'https://lh3.googleusercontent.com/a/test',
     })),
     fetchImpl: upstream,
+    parsePdf,
   }));
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const baseUrl = `http://127.0.0.1:${server.address().port}`;
@@ -186,6 +187,50 @@ test('POST sem par CSRF cookie/header correspondente é bloqueado antes do Apps 
   assert.equal(response.status, 403);
   assert.match(result.mensagem, /CSRF/);
   assert.equal(harness.upstreamRequests.length, 0);
+});
+
+test('upload PDF exige sessão autenticada e CSRF e nunca encaminha bytes ao Apps Script', async (t) => {
+  let parsedBytes;
+  const harness = await createHarness({
+    parsePdf: async (bytes) => {
+      parsedBytes = Buffer.from(bytes).toString();
+      return { institution: 'Banco teste', items: [{ description: 'Compra', amount: '10,00' }] };
+    },
+  });
+  t.after(harness.close);
+  const headers = {
+    'Content-Type': 'application/pdf',
+    Origin: ORIGIN,
+    Cookie: `${SESSION_COOKIE}=${SESSION_TOKEN}; ${CSRF_COOKIE}=${CSRF_TOKEN}`,
+    'X-CSRF-Token': CSRF_TOKEN,
+  };
+  const response = await fetch(`${harness.baseUrl}/api/invoices/parse`, {
+    method: 'POST',
+    headers,
+    body: '%PDF-test',
+  });
+  const result = await response.json();
+  const authRequest = JSON.parse(harness.upstreamRequests[0].options.body);
+
+  assert.equal(response.status, 200);
+  assert.equal(result.data.institution, 'Banco teste');
+  assert.equal(parsedBytes, '%PDF-test');
+  assert.equal(authRequest.action, 'auth.me');
+  assert.equal(authRequest.access_token, SESSION_TOKEN);
+  assert.equal(authRequest.gateway_secret, GATEWAY_SECRET);
+
+  const unauthenticated = await fetch(`${harness.baseUrl}/api/invoices/parse`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/pdf',
+      Origin: ORIGIN,
+      Cookie: `${CSRF_COOKIE}=${CSRF_TOKEN}`,
+      'X-CSRF-Token': CSRF_TOKEN,
+    },
+    body: '%PDF-test',
+  });
+  assert.equal(unauthenticated.status, 401);
+  assert.equal(harness.upstreamRequests.length, 1);
 });
 
 test('renovação estende a sessão persistida sem expor o token ao navegador', async (t) => {

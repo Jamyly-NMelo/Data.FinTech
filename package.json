@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "start": "node --env-file-if-exists=.env.local server/index.js",
     "build": "vite build",
     "lint": "eslint . --quiet",
     "lint:fix": "eslint . --fix",
@@ -46,7 +47,9 @@
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
     "framer-motion": "^11.16.4",
+    "google-auth-library": "^11.3.4",
     "lucide-react": "^0.475.0",
+    "pdfjs-dist": "^6.5.438",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-hook-form": "^7.54.2",

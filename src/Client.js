@@ -103,6 +103,34 @@ export const api = {
       return { status: 'erro', mensagem: error.message };
     }
   },
+
+  async enviarFaturaPdf(file) {
+    try {
+      if (!file || file.size < 1 || file.size > 10 * 1024 * 1024) {
+        throw new Error('Selecione um PDF com até 10 MiB.');
+      }
+      if (!getCsrfToken()) {
+        const bootstrap = await api.obterDados('auth.publicSettings');
+        if (bootstrap?.status === 'erro' || !getCsrfToken()) {
+          throw new Error(bootstrap?.mensagem || 'Não foi possível iniciar a proteção CSRF.');
+        }
+      }
+      const url = apiUrl();
+      url.pathname = `${url.pathname}/invoices/parse`;
+      return unwrapResult(await fetchJson(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/pdf',
+          'X-CSRF-Token': getCsrfToken(),
+        },
+        body: file,
+        credentials: 'same-origin',
+      }), 'invoices.parse');
+    } catch (error) {
+      console.error('Erro ao extrair fatura em PDF:', error.message);
+      throw error;
+    }
+  },
 };
 
 const unwrapResult = (result, action) => {

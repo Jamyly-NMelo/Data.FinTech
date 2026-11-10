@@ -728,6 +728,7 @@ const ACTIONS = {
   "records.count": { fn: recCount_ },
   "records.create": { write: true, fn: recCreate_ },
   "records.bulkCreate": { write: true, fn: recBulkCreate_ },
+  "records.importInvoice": { write: true, fn: recImportInvoice_ },
   "records.update": { write: true, fn: recUpdate_ },
   "records.delete": { write: true, fn: recDelete_ },
   "records.deleteMany": { write: true, fn: recDeleteMany_ }
@@ -1113,6 +1114,86 @@ function recBulkCreate_(p) {
   return objs.map(function (o) { return toRecord_(entity, o); });
 }
 
+function recImportInvoice_(p) {
+  var user = requireUser_(p);
+  var transactions = parseMaybeJson_(p.transactions, []);
+  var invoiceValues = parseMaybeJson_(p.invoice, {});
+  if (!Array.isArray(transactions) || transactions.length < 1 || transactions.length > 200) {
+    throw new HttpError("A importação deve conter de 1 a 200 lançamentos.", 400);
+  }
+  if (!invoiceValues || typeof invoiceValues !== "object" || Array.isArray(invoiceValues)) {
+    throw new HttpError("Dados da fatura inválidos.", 400);
+  }
+
+  var accountId = String(invoiceValues.account_id || "");
+  var fingerprint = String(invoiceValues.fingerprint || "");
+  if (!fingerprint) throw new HttpError("Impressão digital da fatura ausente.", 400);
+  if (loadOwned_("CardInvoice", user).list.some(function (item) {
+    return item.rec.account_id === accountId && item.rec.fingerprint === fingerprint && item.rec.status !== "descartado";
+  })) {
+    throw new HttpError("Esta fatura já foi importada para o cartão selecionado.", 409);
+  }
+  var ownedAccount = loadOwned_("Account", user).list.filter(function (item) {
+    return item.rec.id === accountId;
+  })[0];
+  if (!ownedAccount || ownedAccount.rec.type !== "credit_card") {
+    throw new HttpError("Cartão inválido ou não autorizado.", 403);
+  }
+  var environment = String(ownedAccount.rec.environment || "pf");
+  if (String(invoiceValues.environment || environment) !== environment) {
+    throw new HttpError("O ambiente da fatura não corresponde ao cartão.", 400);
+  }
+
+  var transactionObjs = transactions.map(function (values) {
+    if (
+      !values ||
+      typeof values !== "object" ||
+      String(values.account_id || "") !== accountId ||
+      String(values.card_invoice_account_id || "") !== accountId ||
+      String(values.environment || "") !== environment ||
+      !["expense", "income"].includes(String(values.kind || "")) ||
+      !Number.isFinite(Number(values.amount)) ||
+      Number(values.amount) <= 0
+    ) {
+      throw new HttpError("Lançamento inválido para o cartão selecionado.", 400);
+    }
+    return buildRecord_("Transaction", values, user);
+  });
+  var transactionIds = transactionObjs.map(function (item) { return item.id; });
+  invoiceValues.account_id = accountId;
+  invoiceValues.environment = environment;
+  invoiceValues.transaction_ids = transactionIds;
+  invoiceValues.status = "confirmado";
+  invoiceValues.source = "pdf_import";
+  var invoiceObj = buildRecord_("CardInvoice", invoiceValues, user);
+  var transactionTable = readTable_("Transaction", colsOf_("Transaction"), "Transaction");
+  var invoiceTable = readTable_("CardInvoice", colsOf_("CardInvoice"), "CardInvoice");
+
+  try {
+    appendRows_(transactionTable, transactionObjs);
+    appendRows_(invoiceTable, [invoiceObj]);
+  } catch (error) {
+    try {
+      [ ["Transaction", transactionIds], ["CardInvoice", [invoiceObj.id]] ].forEach(function (entry) {
+        var owned = loadOwned_(entry[0], user);
+        var rows = owned.list.filter(function (item) {
+          return entry[1].indexOf(item.rec.id) >= 0;
+        }).map(function (item) { return item.rowNum; });
+        if (rows.length) deleteRowNums_(owned.table, rows);
+      });
+    } catch (rollbackError) {
+      Logger.log("Falha ao reverter uma importação de fatura incompleta.");
+      throw new HttpError("Falha ao concluir a importação; verifique os lançamentos antes de tentar novamente.", 500);
+    }
+    throw error;
+  }
+
+  return {
+    invoice: toRecord_("CardInvoice", invoiceObj),
+    transactions: transactionObjs.map(function (item) { return toRecord_("Transaction", item); })
+  };
+}
+
 function recUpdate_(p) {
   var user = requireUser_(p);
   var entity = requireEntity_(p.entity);
@@ -1456,8 +1537,13 @@ function authResetRequest_(p) {
   if (u && isVerified_(u.obj.verified)) {
     var token = newToken_();
     saveOtp_(email, "reset", token);
-    var base = PropertiesService.getScriptProperties().getProperty("APP_URL");
-    var link = base ? base.replace(/\/$/, "") + "/reset-password?token=" + token : token;
+    var configuredBase = String(PropertiesService.getScriptProperties().getProperty("APP_URL") || "").trim();
+    var base = configuredBase === "https://datafintech.netlify.app" ||
+      configuredBase === "https://datafintech.netlify.app/"
+      ? "https://datafintech.netlify.app"
+      : "";
+    if (configuredBase && !base) Logger.log("APP_URL deve ser https://datafintech.netlify.app.");
+    var link = base ? base + "/reset-password?token=" + token : token;
     sendCode_(email, link, "redefinição de senha", base ? "Abra o link para criar uma nova senha:" : "Use este código para redefinir sua senha:");
   }
   return { ok: true }; // sempre igual, para não revelar quais e-mails existem
