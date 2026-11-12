@@ -1,24 +1,12 @@
+# Site estático no Netlify. O backend é o Google Apps Script (chamado direto pelo navegador).
 [build]
   command = "npm run build"
   publish = "dist"
-  functions = "netlify/functions"
 
 [build.environment]
-  NODE_VERSION = "24"
-  VITE_SITE_URL = "https://datafintech.netlify.app"
+  NODE_VERSION = "22"
 
-[[redirects]]
-  from = "/api"
-  to = "/.netlify/functions/api"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/api/:splat"
-  status = 200
-  force = true
-
+# Qualquer rota do app abre o index.html (React Router).
 [[redirects]]
   from = "/*"
   to = "/index.html"
@@ -28,6 +16,19 @@
   for = "/*"
   [headers.values]
     X-Content-Type-Options = "nosniff"
-    Referrer-Policy = "strict-origin-when-cross-origin"
     X-Frame-Options = "DENY"
-    Strict-Transport-Security = "max-age=31536000"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=()"
+    Cross-Origin-Opener-Policy = "same-origin-allow-popups"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' https://accounts.google.com https://pagead2.googlesyndication.com https://*.googlesyndication.com https://*.google.com https://www.googletagservices.com https://partner.googleadservices.com https://adservice.google.com; style-src 'self' 'unsafe-inline' https://accounts.google.com; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://script.google.com https://script.googleusercontent.com https://accounts.google.com https://*.google.com https://*.googlesyndication.com https://*.doubleclick.net; frame-src https://accounts.google.com https://*.googlesyndication.com https://*.doubleclick.net https://*.google.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

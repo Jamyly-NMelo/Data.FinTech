@@ -1,158 +1,133 @@
-const API_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+// @ts-nocheck
+// Cliente do backend (Google Apps Script). A URL da implantação (termina em /exec) vem do .env.local:
+//   VITE_APPS_SCRIPT_URL=https://script.google.com/macros/s/SEU_ID/exec
+const APPS_SCRIPT_URL = import.meta.env.VITE_APPS_SCRIPT_URL;
 const TOKEN_STORAGE_KEY = 'datafin.access_token';
-const REQUEST_TIMEOUT_MS = 30000;
+const REQUEST_TIMEOUT_MS = 30000; // o site nunca fica esperando para sempre
 
-const clearLegacyToken = () => {
+// Ações que devolvem um novo access_token: o cliente guarda sozinho, sem depender da tela.
+const TOKEN_ACTIONS = new Set(['auth.login', 'auth.googleLogin', 'auth.verifyOtp']);
+// Um 401 nestas ações não significa "sessão expirada".
+const NO_EXPIRY_EVENT = new Set([
+  'auth.login', 'auth.googleLogin', 'auth.register', 'auth.verifyOtp', 'auth.resendOtp',
+  'auth.resetPasswordRequest', 'auth.resetPassword', 'auth.logout', 'auth.publicSettings',
+]);
+
+export const getAccessToken = () => {
   try {
-    if (typeof localStorage !== 'undefined') localStorage.removeItem(TOKEN_STORAGE_KEY);
+    if (typeof localStorage === 'undefined') return null;
+    return localStorage.getItem(TOKEN_STORAGE_KEY);
   } catch {
-    // The gateway authenticates with an HttpOnly cookie, not local storage.
+    return null;
   }
 };
 
-clearLegacyToken();
-
-export const getAccessToken = () => null;
-export const setAccessToken = clearLegacyToken;
-export const clearAccessToken = clearLegacyToken;
-
-const queryValue = (value) => (typeof value === 'string' ? value : JSON.stringify(value));
-
-const getCsrfToken = () => {
-  if (typeof document === 'undefined') return '';
-  const entry = document.cookie.split('; ').find((cookie) => cookie.startsWith('__Host-datafin.csrf='));
-  if (!entry) return '';
+export const setAccessToken = (token) => {
   try {
-    return decodeURIComponent(entry.slice(entry.indexOf('=') + 1));
+    if (typeof localStorage === 'undefined') return;
+    if (token) localStorage.setItem(TOKEN_STORAGE_KEY, token);
+    else localStorage.removeItem(TOKEN_STORAGE_KEY);
   } catch {
-    return '';
+    /* navegador bloqueou o armazenamento */
   }
 };
 
-const apiUrl = () => {
-  const url = new URL(API_URL, window.location.origin);
-  if (url.origin !== window.location.origin || url.pathname !== '/api' || url.search || url.hash) {
-    throw new Error('VITE_API_BASE_URL deve apontar para /api na mesma origem da aplicação.');
-  }
-  return url;
-};
+export const clearAccessToken = () => setAccessToken(null);
 
-const fetchJson = async (input, init) => {
+// Faz a chamada com tempo limite e só aceita JSON como resposta.
+async function fetchJson(input, init) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
-    const response = await fetch(input, { ...init, signal: controller.signal });
-    const text = await response.text();
+    const resposta = await fetch(input, { ...init, signal: controller.signal });
+    const texto = await resposta.text();
     try {
-      return JSON.parse(text);
+      return JSON.parse(texto);
     } catch {
-      throw new Error('O gateway respondeu em formato inválido. Verifique a implantação do serviço.');
+      throw new Error(
+        'O servidor respondeu em formato inesperado. Confira a implantação do Apps Script ' +
+          '(endereço terminado em /exec, acesso "Qualquer pessoa" e Nova versão).'
+      );
     }
-  } catch (error) {
-    if (error.name === 'AbortError') {
-      throw new Error('O servidor demorou demais para responder. Tente novamente.');
-    }
-    throw error;
+  } catch (erro) {
+    if (erro.name === 'AbortError') throw new Error('O servidor demorou demais para responder. Tente novamente.');
+    throw erro;
   } finally {
     clearTimeout(timer);
   }
-};
+}
+
+// Todas as chamadas vão por POST: o token de sessão fica no corpo da requisição,
+// e não na URL (onde apareceria em históricos e registros).
+async function enviar(acao, dados) {
+  try {
+    if (!APPS_SCRIPT_URL) throw new Error('VITE_APPS_SCRIPT_URL não está definida no .env.local');
+    const accessToken = getAccessToken();
+    const corpo = { ...dados, action: acao, ...(accessToken ? { access_token: accessToken } : {}) };
+    return await fetchJson(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(corpo),
+    });
+  } catch (erro) {
+    console.error('Erro ao falar com o Apps Script:', erro.message);
+    return { status: 'erro', mensagem: erro.message };
+  }
+}
 
 export const api = {
   async obterDados(acao = 'listar', parametros = {}) {
-    try {
-      const url = apiUrl();
-      url.searchParams.set('action', acao);
-      Object.entries(parametros).forEach(([chave, valor]) => {
-        if (
-          valor !== undefined &&
-          valor !== null &&
-          chave !== 'access_token' &&
-          chave !== 'gateway_secret'
-        ) {
-          url.searchParams.set(chave, queryValue(valor));
-        }
-      });
-      return await fetchJson(url, { credentials: 'same-origin' });
-    } catch (error) {
-      console.error('Erro ao consultar o gateway:', error.message);
-      return { status: 'erro', mensagem: error.message };
-    }
+    return enviar(acao, parametros);
   },
-
-  async salvarDados(dados) {
-    try {
-      if (!getCsrfToken()) {
-        const bootstrap = await api.obterDados('auth.publicSettings');
-        if (bootstrap?.status === 'erro' || !getCsrfToken()) {
-          throw new Error(bootstrap?.mensagem || 'Não foi possível iniciar a proteção CSRF.');
-        }
-      }
-
-      return await fetchJson(apiUrl(), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'text/plain;charset=utf-8',
-          'X-CSRF-Token': getCsrfToken(),
-        },
-        body: JSON.stringify(dados),
-        credentials: 'same-origin',
-      });
-    } catch (error) {
-      console.error('Erro ao enviar dados ao gateway:', error.message);
-      return { status: 'erro', mensagem: error.message };
-    }
+  async salvarDados(dados = {}) {
+    const { action, ...resto } = dados;
+    return enviar(action, resto);
   },
-
+  // Leitura do PDF no navegador: o arquivo nunca sai do seu computador.
   async enviarFaturaPdf(file) {
-    try {
-      if (!file || file.size < 1 || file.size > 10 * 1024 * 1024) {
-        throw new Error('Selecione um PDF com até 10 MiB.');
-      }
-      if (!getCsrfToken()) {
-        const bootstrap = await api.obterDados('auth.publicSettings');
-        if (bootstrap?.status === 'erro' || !getCsrfToken()) {
-          throw new Error(bootstrap?.mensagem || 'Não foi possível iniciar a proteção CSRF.');
-        }
-      }
-      const url = apiUrl();
-      url.pathname = `${url.pathname}/invoices/parse`;
-      return unwrapResult(await fetchJson(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/pdf',
-          'X-CSRF-Token': getCsrfToken(),
-        },
-        body: file,
-        credentials: 'same-origin',
-      }), 'invoices.parse');
-    } catch (error) {
-      console.error('Erro ao extrair fatura em PDF:', error.message);
-      throw error;
+    if (!file || file.size < 1 || file.size > 10 * 1024 * 1024) {
+      throw new Error('Selecione um PDF com até 10 MiB.');
     }
+    const { extractInvoicePdf } = await import('@/lib/finance/pdf-extract');
+    return extractInvoicePdf(await file.arrayBuffer());
   },
+
 };
 
-const unwrapResult = (result, action) => {
+const unwrapResult = (result) => {
   if (result?.status === 'erro' || result?.error) {
-    const message = result.mensagem || result.error?.message || result.error || 'Falha ao comunicar com o gateway.';
+    const message = result.mensagem || result.error?.message || result.error || 'Falha ao comunicar com o Apps Script.';
     const error = new Error(message);
     error.status = result.httpStatus || result.statusCode;
     error.data = result;
-    if (error.status === 401 && !String(action).startsWith('auth.') && typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('datafin:session-expired'));
-    }
     throw error;
   }
   return result && Object.hasOwn(result, 'data') ? result.data : result;
 };
 
+async function chamar(action, payload) {
+  const tinhaToken = Boolean(getAccessToken());
+  const bruto = await enviar(action, payload);
+  let dados;
+  try {
+    dados = unwrapResult(bruto);
+  } catch (erro) {
+    // Token vencido ou inválido: avisa o app para encerrar a sessão e voltar ao login.
+    if (tinhaToken && erro.status === 401 && !NO_EXPIRY_EVENT.has(action) && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('datafin:session-expired'));
+    }
+    throw erro;
+  }
+  if (TOKEN_ACTIONS.has(action) && dados?.access_token) setAccessToken(dados.access_token);
+  return dados;
+}
+
 export async function get(action = 'listar', params = {}) {
-  return unwrapResult(await api.obterDados(action, params), action);
+  return chamar(action, params);
 }
 
 export async function post(action, payload = {}) {
-  return unwrapResult(await api.salvarDados({ ...payload, action }), action);
+  return chamar(action, payload);
 }
 
 api.get = get;

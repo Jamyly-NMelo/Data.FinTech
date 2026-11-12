@@ -1,4 +1,7 @@
-import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
+import { GlobalWorkerOptions, getDocument } from 'pdfjs-dist';
+import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+
+GlobalWorkerOptions.workerSrc = workerUrl;
 
 export const MAX_PDF_BYTES = 10 * 1024 * 1024;
 const MAX_PDF_PAGES = 40;
@@ -113,7 +116,7 @@ export async function extractInvoicePdf(input) {
   if (!bytes.length || bytes.length > MAX_PDF_BYTES) {
     throw Object.assign(new Error('O PDF está vazio ou excede o limite de 10 MiB.'), { status: bytes.length ? 413 : 400 });
   }
-  if (new TextDecoder().decode(bytes.subarray(0, 5)) !== '%PDF-') {
+  if (String.fromCharCode(...bytes.subarray(0, 5)) !== '%PDF-') {
     throw Object.assign(new Error('O arquivo enviado não é um PDF válido.'), { status: 415 });
   }
 
@@ -123,7 +126,6 @@ export async function extractInvoicePdf(input) {
       data: bytes,
       disableFontFace: true,
       isEvalSupported: false,
-      useSystemFonts: true,
       verbosity: 0,
     });
     const document = await loadingTask.promise;
