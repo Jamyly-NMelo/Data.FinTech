@@ -8,10 +8,10 @@ test('site config uses the configured canonical URL and removes trailing slashes
     name: 'DataFintech',
     domain: '',
   });
-  assert.deepEqual(createSiteConfig({ VITE_SITE_URL: 'https://datafintech.netlify.app/' }), {
-    url: 'https://datafintech.netlify.app',
+  assert.deepEqual(createSiteConfig({ VITE_SITE_URL: 'https://data-fintech.pages.dev/' }), {
+    url: 'https://data-fintech.pages.dev',
     name: 'DataFintech',
-    domain: 'datafintech.netlify.app',
+    domain: 'data-fintech.pages.dev',
   });
 });
 
@@ -35,7 +35,7 @@ test('site config rejects invalid URLs and uses configured app name', () => {
 });
 
 test('canonical URLs use the configured host and remain empty without a base URL', () => {
-  assert.equal(buildCanonicalUrl('https://datafintech.netlify.app/', '/artigos/exemplo'), 'https://datafintech.netlify.app/artigos/exemplo');
-  assert.equal(buildCanonicalUrl('https://datafintech.netlify.app///', '/'), 'https://datafintech.netlify.app/');
+  assert.equal(buildCanonicalUrl('https://data-fintech.pages.dev/', '/artigos/exemplo'), 'https://data-fintech.pages.dev/artigos/exemplo');
+  assert.equal(buildCanonicalUrl('https://data-fintech.pages.dev///', '/'), 'https://data-fintech.pages.dev/');
   assert.equal(buildCanonicalUrl('', '/artigos/exemplo'), '');
 });

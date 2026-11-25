@@ -15,7 +15,7 @@
 //   4) Crie seu usuário pelo app (/register) ou rode criarAdmin() (veja a função).
 // ============================================================
 
-const VERSION = "2.0.0";
+const VERSION = "2.2.0";
 const SPREADSHEET_ID = "1iCWyX2vH7W-1LpKciD69XwEG_6b2pZD98X7Uj4S5F6k";
 
 const SESSION_DAYS = 30;       // validade do login
@@ -868,8 +868,33 @@ function readTable_(name, columns, entity) {
   return { sh: sh, headers: headers, rows: rows };
 }
 
+function snapshotSheet_(sh) {
+  var lock = LockService.getScriptLock();
+  var alreadyLocked = lock.hasLock();
+  if (!alreadyLocked) lock.waitLock(20000);
+  try {
+    var ss = ss_();
+    var baseName = "Backup_" + sh.getName() + "_" +
+      Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyyMMdd_HHmmss");
+    var name = baseName;
+    var suffix = 1;
+    while (ss.getSheetByName(name)) name = baseName + "_" + suffix++;
+    sh.copyTo(ss).setName(name);
+  } finally {
+    if (!alreadyLocked) lock.releaseLock();
+  }
+}
+
+function safeTextForSheet_(value) {
+  if (typeof value !== "string") return value;
+  return /^[\s]*[=+\-@]/.test(value) ? "'" + value : value;
+}
+
 function rowArray_(headers, obj) {
-  return headers.map(function (h) { return (h && obj[h] !== undefined && obj[h] !== null) ? obj[h] : ""; });
+  return headers.map(function (h) {
+    var value = (h && obj[h] !== undefined && obj[h] !== null) ? obj[h] : "";
+    return safeTextForSheet_(value);
+  });
 }
 
 function appendRows_(table, objs) {
@@ -1097,9 +1122,38 @@ function recCreate_(p) {
   var entity = requireEntity_(p.entity);
   var user = (entity === "ContactMessage") ? optionalUser_(p) : requireUser_(p);
   var table = readTable_(entity, colsOf_(entity), entity);
-  var obj = buildRecord_(entity, parseMaybeJson_(p.values, {}), user);
+  var values = parseMaybeJson_(p.values, {});
+  if (entity === "CardInvoice" && values.source === "pdf_import") {
+    validateCardInvoiceImport_(values, user);
+  }
+  var obj = buildRecord_(entity, values, user);
+  if (entity === "CardInvoice" && values.source === "pdf_import") snapshotSheet_(table.sh);
   appendRows_(table, [obj]);
   return toRecord_(entity, obj);
+}
+
+function validateCardInvoiceImport_(values, user) {
+  var accountId = String(values.account_id || "");
+  var fingerprint = String(values.fingerprint || "");
+  if (!fingerprint) throw new HttpError("Impressão digital da fatura ausente.", 400);
+  var account = loadOwned_("Account", user).list.filter(function (item) {
+    return item.rec.id === accountId;
+  })[0];
+  if (!account || account.rec.type !== "credit_card") {
+    throw new HttpError("Cartão inválido ou não autorizado.", 403);
+  }
+  var environment = String(account.rec.environment || "pf");
+  if (String(values.environment || environment) !== environment) {
+    throw new HttpError("O ambiente da fatura não corresponde ao cartão.", 400);
+  }
+  if (loadOwned_("CardInvoice", user).list.some(function (item) {
+    return item.rec.account_id === accountId &&
+      item.rec.fingerprint === fingerprint &&
+      item.rec.status !== "descartado";
+  })) {
+    throw new HttpError("Esta fatura já foi importada para o cartão selecionado.", 409);
+  }
+  values.environment = environment;
 }
 
 function recBulkCreate_(p) {
@@ -1110,6 +1164,7 @@ function recBulkCreate_(p) {
   if (values.length > 500) throw new HttpError("Máximo de 500 registros por chamada.", 400);
   var table = readTable_(entity, colsOf_(entity), entity);
   var objs = values.map(function (v) { return buildRecord_(entity, v, user); });
+  if (objs.length) snapshotSheet_(table.sh);
   appendRows_(table, objs);
   return objs.map(function (o) { return toRecord_(entity, o); });
 }
@@ -1170,6 +1225,8 @@ function recImportInvoice_(p) {
   var invoiceTable = readTable_("CardInvoice", colsOf_("CardInvoice"), "CardInvoice");
 
   try {
+    snapshotSheet_(transactionTable.sh);
+    snapshotSheet_(invoiceTable.sh);
     appendRows_(transactionTable, transactionObjs);
     appendRows_(invoiceTable, [invoiceObj]);
   } catch (error) {
@@ -1233,6 +1290,7 @@ function recDeleteMany_(p) {
   var q = parseMaybeJson_(p.query, {});
   var data = loadOwned_(entity, user);
   var nums = data.list.filter(function (x) { return matches_(x.rec, q); }).map(function (x) { return x.rowNum; });
+  if (nums.length && Object.keys(q || {}).length === 0) snapshotSheet_(data.table.sh);
   deleteRowNums_(data.table, nums);
   return { deleted: nums.length };
 }
@@ -1538,11 +1596,11 @@ function authResetRequest_(p) {
     var token = newToken_();
     saveOtp_(email, "reset", token);
     var configuredBase = String(PropertiesService.getScriptProperties().getProperty("APP_URL") || "").trim();
-    var base = configuredBase === "https://datafintech.netlify.app" ||
-      configuredBase === "https://datafintech.netlify.app/"
-      ? "https://datafintech.netlify.app"
+    var base = configuredBase === "https://data-fintech.pages.dev" ||
+      configuredBase === "https://data-fintech.pages.dev/"
+      ? "https://data-fintech.pages.dev"
       : "";
-    if (configuredBase && !base) Logger.log("APP_URL deve ser https://datafintech.netlify.app.");
+    if (configuredBase && !base) Logger.log("APP_URL deve ser https://data-fintech.pages.dev.");
     var link = base ? base + "/reset-password?token=" + token : token;
     sendCode_(email, link, "redefinição de senha", base ? "Abra o link para criar uma nova senha:" : "Use este código para redefinir sua senha:");
   }

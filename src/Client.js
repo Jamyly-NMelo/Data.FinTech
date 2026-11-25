@@ -1,6 +1,8 @@
 // @ts-nocheck
 // Cliente do backend (Google Apps Script). A URL da implantação (termina em /exec) vem do .env.local:
 //   VITE_APPS_SCRIPT_URL=https://script.google.com/macros/s/SEU_ID/exec
+import { normalizeJsonPayload } from '@/lib/normalize-json';
+
 const APPS_SCRIPT_URL = import.meta.env.VITE_APPS_SCRIPT_URL;
 const TOKEN_STORAGE_KEY = 'datafin.access_token';
 const REQUEST_TIMEOUT_MS = 30000; // o site nunca fica esperando para sempre
@@ -63,7 +65,11 @@ async function enviar(acao, dados) {
   try {
     if (!APPS_SCRIPT_URL) throw new Error('VITE_APPS_SCRIPT_URL não está definida no .env.local');
     const accessToken = getAccessToken();
-    const corpo = { ...dados, action: acao, ...(accessToken ? { access_token: accessToken } : {}) };
+    const corpo = normalizeJsonPayload({
+      ...dados,
+      action: acao,
+      ...(accessToken ? { access_token: accessToken } : {}),
+    });
     return await fetchJson(APPS_SCRIPT_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },

@@ -21,7 +21,7 @@ npm run dev
 ```
 
 Configure `VITE_APPS_SCRIPT_URL` com a URL `/exec` do Web App implantado e `VITE_GOOGLE_CLIENT_ID` com o ID OAuth Web usado no login Google. `.env.local` é local e não deve ser commitado.
-O domínio canônico do frontend é definido exclusivamente por `VITE_SITE_URL`. Em produção no Netlify, use `https://datafintech.netlify.app`; no desenvolvimento local, o canonical acompanha a origem local quando a variável não está configurada.
+O domínio canônico do frontend é definido exclusivamente por `VITE_SITE_URL`. Em produção no Cloudflare Pages, use `https://data-fintech.pages.dev`; no desenvolvimento local, o canonical acompanha a origem local quando a variável não está configurada.
 
 Comandos de verificação:
 
@@ -31,6 +31,10 @@ npm run build
 node --test src/lib/finance/tests/*.test.js
 ```
 
+## Implantar no Cloudflare Pages
+
+Configure o comando de build como `npm run build`, o diretório de saída como `dist` e a variável de ambiente `VITE_SITE_URL` como `https://data-fintech.pages.dev`. O build de produção exige uma origem HTTPS válida; em desenvolvimento, o domínio canônico acompanha automaticamente a origem local.
+
 ## Login Google
 
 O frontend usa Google Identity Services e envia a credencial ao Apps Script pela ação `auth.googleLogin`. Configure o mesmo ID do cliente OAuth Web no frontend (`VITE_GOOGLE_CLIENT_ID`) e nas Script Properties (`GOOGLE_CLIENT_ID`).
@@ -39,7 +43,7 @@ No Google Cloud Console:
 
 1. Configure a tela de consentimento OAuth.
 2. Crie ou selecione um cliente OAuth do tipo **Aplicativo da Web**.
-3. Em **Origens JavaScript autorizadas**, cadastre cada origem usada, incluindo a origem local exibida pelo servidor Vite e a origem de produção `https://datafintech.netlify.app`. Informe apenas esquema, domínio e porta, sem caminho.
+3. Em **Origens JavaScript autorizadas**, cadastre cada origem usada, incluindo a origem local exibida pelo servidor Vite e a origem de produção `https://data-fintech.pages.dev`. Informe apenas esquema, domínio e porta, sem caminho.
 4. Use o ID do cliente OAuth Web nas configurações do frontend e do Apps Script. Este projeto usa Google Identity Services com callback de credencial, não um fluxo OAuth baseado em URL de redirecionamento.
 
 ## Configurar as propriedades do Apps Script

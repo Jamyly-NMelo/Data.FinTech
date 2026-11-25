@@ -103,7 +103,7 @@ export default function InvoiceImport() {
       if (!normalized.hasContent || normalized.items.length === 0) {
         throw new Error('A leitura não identificou lançamentos importáveis. Nenhum dado foi confirmado.');
       }
-      setDocument(normalized);
+      setDocument({ ...normalized, sourceFileName: file.name });
       setItems(reviewItems(normalized, { transactions, accountId }));
     } catch (uploadError) {
       setError(uploadError.message || 'Não foi possível ler o PDF. Nenhum dado foi confirmado.');
@@ -179,14 +179,42 @@ export default function InvoiceImport() {
         summary_only: document.summaryOnly,
         fingerprint: reviewDocument.extractedFingerprint,
         source: 'pdf_import',
+        source_file_name: document.sourceFileName,
         status: 'confirmado',
         notes: document.warnings.join(' '),
       };
 
-      await post('records.importInvoice', {
-        invoice,
-        transactions: selectedTransactions,
+      const createdTransactions = await post('records.bulkCreate', {
+        entity: 'Transaction',
+        values: selectedTransactions,
       });
+      if (!Array.isArray(createdTransactions)) {
+        throw new Error('O servidor não confirmou os lançamentos da fatura.');
+      }
+      try {
+        await post('records.create', {
+          entity: 'CardInvoice',
+          values: {
+            ...invoice,
+            transaction_ids: createdTransactions.map((transaction) => transaction.id).filter(Boolean),
+          },
+        });
+      } catch (invoiceError) {
+        const transactionIds = createdTransactions.map((transaction) => transaction.id).filter(Boolean);
+        if (transactionIds.length) {
+          try {
+            await post('records.deleteMany', {
+              entity: 'Transaction',
+              query: { id: { $in: transactionIds } },
+            });
+          } catch (rollbackError) {
+            throw new Error(
+              `A fatura não foi salva (${invoiceError.message}) e não foi possível remover os lançamentos criados (${rollbackError.message}).`,
+            );
+          }
+        }
+        throw invoiceError;
+      }
       await refresh();
       setDocument(null);
       setItems([]);
@@ -289,6 +317,20 @@ export default function InvoiceImport() {
                   Vencimento: {document.dueDate || 'não identificado'} · Fechamento: {document.closingDate || 'não identificado'} · Total declarado: {document.fields.declaredTotal === null ? 'não identificado' : formatCurrency(document.fields.declaredTotal)}
                 </p>
               </div>
+            </div>
+            <div className="mb-4 grid gap-2 rounded-lg border p-3 text-sm sm:grid-cols-3">
+              <p>Itens (compras e encargos): <strong>{formatCurrency(totals.itemsTotal)}</strong></p>
+              <p>Total declarado: <strong>{document.fields.declaredTotal === null ? 'não identificado' : formatCurrency(document.fields.declaredTotal)}</strong></p>
+              <p>
+                Conferência:
+                <strong className="ml-1">
+                  {document.calculated.matchesDeclared === null
+                    ? 'indisponível'
+                    : document.calculated.matchesDeclared
+                      ? 'compatível'
+                      : `diferença de ${formatCurrency(document.calculated.difference)}`}
+                </strong>
+              </p>
             </div>
             {document.warnings.length ? (
               <ul className="mb-4 list-inside list-disc space-y-1 text-xs text-amber-700">
