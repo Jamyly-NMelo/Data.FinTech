@@ -46,7 +46,13 @@ export function loadAdSenseScript() {
       loader = null;
       resolve(false);
     };
-    document.head.appendChild(script);
+    try {
+      document.head.appendChild(script);
+    } catch {
+      script.remove();
+      loader = null;
+      resolve(false);
+    }
   });
 
   return loader;
